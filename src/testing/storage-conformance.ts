@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
-import type { Storage, StorageAdmin } from '../core/contracts.ts';
+import type { Storage, StorageAdmin, StorageListPage } from '../core/contracts.ts';
 import { ConditionalWritesUnsupported } from '../core/errors.ts';
 import { isStorageAdmin } from '../core/storage.ts';
 import type { ConformanceCase } from './conformance.ts';
@@ -233,7 +233,7 @@ function adminCases(create: StorageFactory): ConformanceCase[] {
         const seen: string[] = [];
         let cursor: string | undefined;
         for (let pages = 0; pages < 10; pages++) {
-          const page = await storage.list(`${base}/`, {
+          const page: StorageListPage = await storage.list(`${base}/`, {
             limit: 3,
             ...(cursor !== undefined ? { cursor } : {}),
           });
