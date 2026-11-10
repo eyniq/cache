@@ -16,7 +16,7 @@ RUN pnpm build
 # `docker run -v name:/data` works without root (Kubernetes uses fsGroup instead).
 RUN mkdir -p /data-empty
 
-FROM gcr.io/distroless/nodejs26-debian13:nonroot@sha256:044d090d0c3ccfd30722126ebe46704885698970c8a303419dc0d704d628f0da
+FROM gcr.io/distroless/nodejs26-debian13:nonroot@sha256:33c86a63859efc2ebd88ea0a355863582ec6f1220d048de62baffb2584e709b3
 LABEL org.opencontainers.image.source="https://github.com/eyniq/cache" \
       org.opencontainers.image.title="Eyniq Cache" \
       org.opencontainers.image.licenses="FSL-1.1-ALv2"
