@@ -44,7 +44,7 @@ In scope:
 - `/livez`, `/readyz`, `/metrics` (Prometheus text), JSON logs to stdout.
 - Dockerfile (distroless), Helm chart, load-test harness.
 
-Out of scope for the MVP (see the planning doc, "Na de MVP"): publishing private packages, OSV and publisher checks, policy engine, audit log with retention, SSO/RBAC, dashboard, SBOM export, multi-region replication, PyPI/Docker/Maven, air-gapped mirror, licensing. `PUT`, `DELETE` and login endpoints return `405`.
+Out of scope for the MVP (later phases): publishing private packages, OSV and publisher checks, policy engine, audit log with retention, SSO/RBAC, dashboard, SBOM export, multi-region replication, PyPI/Docker/Maven, air-gapped mirror, licensing. `PUT`, `DELETE` and login endpoints return `405`.
 
 ## 5. Registry protocol to implement
 
