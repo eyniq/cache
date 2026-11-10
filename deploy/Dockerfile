@@ -4,7 +4,7 @@
 
 # Base images are pinned by index digest. Update: docker buildx imagetools inspect <image:tag>
 # and copy the top-level Digest.
-FROM node:26-trixie-slim@sha256:0d1e33586362bb9e608c4e751e7a9e7edb55c9ac11461ed5666af696cc461dd4 AS build
+FROM node:26-trixie-slim@sha256:5adad64f9a1fca2d51972caa65983634c8a774eb300d72b20f7f2a0f60368072 AS build
 WORKDIR /app
 RUN npm install --global pnpm@12.6.0
 COPY package.json pnpm-lock.yaml ./
