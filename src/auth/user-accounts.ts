@@ -42,6 +42,7 @@ import {
   hashToken,
   isTokenHash,
   isUserToken,
+  RevocationLimitedError,
   type StoredUserToken,
   type UserTokenStore,
 } from './user-tokens.ts';
@@ -82,6 +83,17 @@ const invalid = (): HttpError => new HttpError(401, 'invalid credentials');
 export function passwordBusy(): HttpError {
   const message = 'too many password checks in progress; retry shortly';
   return new HttpError(503, message, { error: message }, { 'retry-after': '1' });
+}
+
+/** Logout refused by the LookupLimiter before the token was read (it is about no token). */
+function logoutThrottled(retryAfterSeconds: number): HttpError {
+  const message = 'logout is rate limited, retry later';
+  return new HttpError(
+    429,
+    message,
+    { error: message },
+    { 'retry-after': String(retryAfterSeconds) },
+  );
 }
 
 function toAccountToken({ hash, record }: StoredUserToken): AccountToken {
@@ -344,9 +356,12 @@ export class UserAccounts implements AccountProvider {
   async logout(token: string, ctx?: Pick<AccountContext, 'clientAddress'>): Promise<void> {
     if (!isUserToken(token)) return;
     try {
-      // Unauthenticated: reads for unknown tokens come out of the LookupLimiter budget.
+      // Unauthenticated: reads for unknown tokens come out of the LookupLimiter budget. A
+      // refused read fails visibly (429): the token may be real, so a 200 would be a false
+      // "logged out".
       await this.opts.tokens.revoke(hashToken(token), { address: ctx?.clientAddress });
     } catch (err) {
+      if (err instanceof RevocationLimitedError) throw logoutThrottled(err.retryAfterSeconds);
       log.error('logout could not revoke the token', errorFields(err));
       throw err;
     }

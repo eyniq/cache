@@ -108,6 +108,16 @@ function parseRecord(text: string): UserTokenRecord | null {
   };
 }
 
+/** An unauthenticated revocation was refused by the LookupLimiter before any read. */
+export class RevocationLimitedError extends Error {
+  readonly retryAfterSeconds: number;
+  constructor(retryAfterSeconds: number) {
+    super('token lookups are rate limited');
+    this.retryAfterSeconds = retryAfterSeconds;
+    this.name = 'RevocationLimitedError';
+  }
+}
+
 export interface UserTokenStoreOptions {
   storage: Storage;
   /** How long a pod trusts its copy of a record (revocation delay elsewhere). 0: no cache. */
@@ -224,15 +234,18 @@ export class UserTokenStore {
    * Marks a token revoked; true when it exists. `unverified` (npm logout, which needs no
    * credentials): nothing has shown that the token exists, so unless this pod already knows
    * its record the first read is bounded like a lookup of an unknown token (see find), with
-   * `address` keying the client's budget. Beyond the budget it answers false without a read,
-   * as for an unknown token; a read that finds the record gives the budget back.
+   * `address` keying the client's budget. Beyond the budget it throws RevocationLimitedError
+   * without a read (never a silent false: the token may be real); a read that finds the record
+   * gives the budget back.
    */
   async revoke(hash: string, unverified?: { address: string | undefined }): Promise<boolean> {
     if (!HASH.test(hash)) return false;
     const key = `${PREFIX}${hash}`;
     let limiter = unverified && !this.cache.get(hash)?.record ? this.limiter : undefined;
     const client = unverified?.address;
-    if (limiter && !limiter.take(client)) return false;
+    if (limiter && !limiter.take(client)) {
+      throw new RevocationLimitedError(limiter.retryAfterSeconds(client));
+    }
     for (let attempt = 0; attempt < 5; attempt++) {
       const opened = this.storage.open ? await this.storage.open(key) : null;
       const info = opened ? { etag: opened.etag } : await this.storage.head(key);

@@ -495,7 +495,9 @@ export interface AccountProvider {
   deleteToken?(identity: Identity, key: string, ctx: AccountContext): Promise<boolean>;
   /**
    * Revokes `token` when it is valid. Called without authentication: answer the same way
-   * whether or not it was valid (the core always answers 200).
+   * whether or not it was valid (the core answers 200). A refusal that comes before anything
+   * about the token is known (e.g. HttpError 429 with Retry-After when lookups are rate
+   * limited) is passed on as is, so a client never takes it for a completed logout.
    */
   logout?(token: string, ctx: AccountContext): Promise<void>;
 }
