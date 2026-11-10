@@ -4,7 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { LookupLimiter } from '../../src/auth/lookup-limiter.ts';
-import { UserTokenStore, hashToken, isUserToken } from '../../src/auth/user-tokens.ts';
+import {
+  RevocationLimitedError,
+  UserTokenStore,
+  hashToken,
+  isUserToken,
+} from '../../src/auth/user-tokens.ts';
 import { FsStorage } from '../../src/storage/fs.ts';
 
 let root: string;
@@ -44,6 +49,20 @@ class CountingStorage extends FsStorage {
   override async head(key: string): ReturnType<FsStorage['head']> {
     if (key.startsWith('auth/user-tokens/')) this.reads++;
     return super.head(key);
+  }
+}
+
+/** revoke's answer, or 'limited' when the LookupLimiter refused it (with its Retry-After). */
+async function revoked(
+  pod: UserTokenStore,
+  hash: string,
+  unverified?: { address: string | undefined },
+): Promise<boolean | `limited ${number}`> {
+  try {
+    return await pod.revoke(hash, unverified);
+  } catch (err) {
+    if (err instanceof RevocationLimitedError) return `limited ${err.retryAfterSeconds}`;
+    throw err;
   }
 }
 
@@ -206,22 +225,22 @@ describe('UserTokenStore', () => {
       now: () => now,
       lookupLimiter: limiter,
     });
-    // A logout storm of made-up tokens from one client: three cost reads, the rest none.
+    // A logout storm of made-up tokens from one client: three are read (not found), the rest
+    // are refused before any read, visibly and with a Retry-After.
+    const answers = [];
     for (let i = 0; i < 20; i++) {
-      expect(await pod.revoke(hashToken(randomToken()), { address: '192.0.2.1' })).toBe(false);
+      answers.push(await revoked(pod, hashToken(randomToken()), { address: '192.0.2.1' }));
     }
-    const stormReads = storage.reads;
-    expect(stormReads).toBe(6); // three revocations, each an open and then a head
-    for (let i = 0; i < 5; i++) {
-      await pod.revoke(hashToken(randomToken()), { address: '192.0.2.1' });
-    }
-    expect(storage.reads).toBe(stormReads);
+    expect(answers.slice(0, 3)).toEqual([false, false, false]);
+    expect(answers.slice(3)).toEqual(Array(17).fill('limited 1000'));
+    expect(storage.reads).toBe(6); // three revocations, each an open and then a head
     // Without an address only the global budget applies, and it runs out too.
-    for (let i = 0; i < 20; i++) {
-      await pod.revoke(hashToken(randomToken()), { address: undefined });
-    }
+    for (let i = 0; i < 20; i++)
+      await revoked(pod, hashToken(randomToken()), { address: undefined });
     const before = storage.reads;
-    expect(await pod.revoke(hashToken(randomToken()), { address: '203.0.113.9' })).toBe(false);
+    expect(await revoked(pod, hashToken(randomToken()), { address: '203.0.113.9' })).toMatch(
+      /^limited \d+$/,
+    );
     expect(storage.reads).toBe(before);
     // Authenticated revocations (token delete) are not bounded: the caller checked the record.
     const { hash } = await pod.create('alice', now + 600_000, G);
@@ -252,13 +271,18 @@ describe('UserTokenStore', () => {
     }
     // The budget (2) is untouched by the five real logouts: two unknown tokens still read.
     const before = storage.reads;
-    await pod.revoke(hashToken(randomToken()), client);
-    const one = storage.reads - before;
-    expect(one).toBeGreaterThan(0);
-    await pod.revoke(hashToken(randomToken()), client);
-    expect(storage.reads).toBe(before + 2 * one);
-    await pod.revoke(hashToken(randomToken()), client);
-    expect(storage.reads).toBe(before + 2 * one);
+    expect(await revoked(pod, hashToken(randomToken()), client)).toBe(false);
+    expect(await revoked(pod, hashToken(randomToken()), client)).toBe(false);
+    expect(storage.reads).toBe(before + 4);
+    // Now the budget is used up: a real token is refused visibly, not reported as revoked...
+    const { token, hash } = await pod.create('alice', now + 600_000, G);
+    expect(await revoked(pod, hash, client)).toBe('limited 1000');
+    expect(storage.reads).toBe(before + 4);
+    expect((await pod.get(hash))?.revoked).toBe(false);
+    // ...and a retry once the budget has refilled revokes it.
+    now += 1_000_000;
+    expect(await revoked(pod, hash, client)).toBe(true);
+    expect(await pod.lookup(token)).toBeNull();
   });
 
   it('revokes a token this pod knows even when the client has no budget left', async () => {
@@ -281,8 +305,8 @@ describe('UserTokenStore', () => {
     const client = { address: '198.51.100.8' };
     await pod.revoke(hashToken(randomToken()), client); // uses the only lookup
     const other = await pod.create('alice', now + 600_000, G);
-    // Unknown to this pod and no budget: answered like an unknown token, not revoked.
-    expect(await pod.revoke(other.hash, client)).toBe(false);
+    // Unknown to this pod and no budget: refused before the read, not revoked.
+    expect(await revoked(pod, other.hash, client)).toBe('limited 1000');
     expect((await pod.get(other.hash))?.revoked).toBe(false);
     // Known from the cache: revoked without taking from the budget.
     expect(await pod.revoke(hash, client)).toBe(true);

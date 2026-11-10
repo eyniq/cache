@@ -124,6 +124,21 @@ describe('C3: users and npm login', () => {
     expect((await send(cache.url, { path: '/-/whoami', headers: bearer(token) })).status).toBe(401);
   });
 
+  it('refuses a logout storm of made-up tokens with 429 and Retry-After, not a false 200', async () => {
+    const { cache } = await start();
+    const made = () =>
+      `eyc_${Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url')}`;
+    let out: RawResponse | undefined;
+    // The per-client budget is 60 lookups of unknown tokens (refilling 2/s).
+    for (let i = 0; i < 100; i++) {
+      out = await send(cache.url, { method: 'DELETE', path: `/-/user/token/${made()}` });
+      if (out.status !== 200) break;
+    }
+    expect(out?.status).toBe(429);
+    expect(out?.headers['retry-after']).toBe('1');
+    expect(json(out!)).toEqual({ error: 'logout is rate limited, retry later' });
+  });
+
   it('lists, creates and revokes tokens (npm token)', async () => {
     const { cache } = await start();
     const token = await tokenOf(cache);

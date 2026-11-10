@@ -69,6 +69,12 @@ export class LookupLimiter {
     return true;
   }
 
+  /** Whole seconds (at least 1) until `address` may look up again after a refused take. */
+  retryAfterSeconds(address: string | undefined): number {
+    const own = this.bucket(address, false)?.retryAfterSeconds() ?? 1;
+    return Math.max(own, this.global.retryAfterSeconds());
+  }
+
   /** The lookup found a real credential: its budget comes back. */
   refund(address: string | undefined): void {
     this.bucket(address, false)?.refund();
