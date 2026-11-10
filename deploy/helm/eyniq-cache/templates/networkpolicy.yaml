@@ -1,0 +1,36 @@
+{{- if .Values.networkPolicy.enabled }}
+# Registry port: only the listed client namespaces. Management port (unauthenticated probes
+# and metrics): only the listed monitoring namespaces; kubelet probes are not affected by
+# NetworkPolicy in most CNIs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "eyniq-cache.fullname" . }}
+  labels:
+    {{- include "eyniq-cache.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "eyniq-cache.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - port: http
+      from:
+        {{- range .Values.networkPolicy.clientNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+        {{- end }}
+        - podSelector: {}
+    {{- if .Values.networkPolicy.monitoringNamespaces }}
+    - ports:
+        - port: management
+      from:
+        {{- range .Values.networkPolicy.monitoringNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+        {{- end }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+.env
+.env.*
+*.log
+/.data
+/.claude
+test/fixtures/**/*.unpacked.json
+load/results

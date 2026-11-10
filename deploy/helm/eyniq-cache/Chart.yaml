@@ -1,0 +1,9 @@
+apiVersion: v2
+name: eyniq-cache
+description: Pull-through npm registry cache with a minimum release age gate (community edition).
+type: application
+version: 0.1.0
+appVersion: '0.0.1'
+home: https://github.com/eyniq/cache
+sources:
+  - https://github.com/eyniq/cache

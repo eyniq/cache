@@ -1,0 +1,16 @@
+Eyniq Cache is available in the cluster at:
+
+  http://{{ include "eyniq-cache.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}/
+
+Point clients at it (both variables; pnpm 11+ only reads pnpm_config_*):
+
+  npm_config_registry={{ .Values.publicUrl }}/
+  pnpm_config_registry={{ .Values.publicUrl }}/
+
+Probes and Prometheus metrics: service {{ include "eyniq-cache.fullname" . }}-management, port {{ .Values.management.port }}.
+{{- if .Values.networkPolicy.enabled }}
+NetworkPolicy: registry port open to this namespace{{ with .Values.networkPolicy.clientNamespaces }} and {{ join ", " . }}{{ end }}; management port open to {{ with .Values.networkPolicy.monitoringNamespaces }}{{ join ", " . }}{{ else }}no namespace (kubelet probes only){{ end }}.
+{{- else }}
+WARNING: networkPolicy.enabled=false: every pod in the cluster can reach the registry and the unauthenticated management port.
+{{- end }}
+Minimum release age: {{ .Values.config.minReleaseAge }} (fail closed: {{ .Values.config.failClosed }}).

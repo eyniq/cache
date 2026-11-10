@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Package catalog</title>
+    <link rel="icon" href="/-/web/static/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/-/web/static/style.css" />
+    <script type="module" src="/-/web/static/app.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site">
+      <a class="brand" href="/-/web/" data-route>Package catalog</a>
+      <form class="search" role="search" action="/-/web/search" method="get">
+        <label class="visually-hidden" for="q">Search packages</label>
+        <input
+          id="q"
+          name="q"
+          type="search"
+          placeholder="Search packages"
+          maxlength="512"
+          autocomplete="off"
+        />
+        <button type="submit">Search</button>
+      </form>
+      <nav id="account" aria-label="Account"></nav>
+    </header>
+    <main id="main" tabindex="-1">
+      <noscript><p>This catalog needs JavaScript.</p></noscript>
+    </main>
+    <p id="status" class="visually-hidden" role="status" aria-live="polite"></p>
+    <footer class="site">Read-only package catalog of this registry</footer>
+  </body>
+</html>

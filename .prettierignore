@@ -1,0 +1,8 @@
+dist
+coverage
+pnpm-lock.yaml
+test/fixtures
+LICENSE
+deploy/helm/**/templates
+.claude
+docs/DESIGN.md

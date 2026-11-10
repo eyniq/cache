@@ -1,0 +1,2 @@
+# Fingerprints of gitleaks false positives (commit:file:rule:line). Prefer an inline
+# `gitleaks:allow` comment on the line itself.

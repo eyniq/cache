@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "eyniq-cache.fullname" . }}
+  labels:
+    {{- include "eyniq-cache.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "eyniq-cache.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+---
+# Probes and Prometheus only; not meant for registry clients.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "eyniq-cache.fullname" . }}-management
+  labels:
+    {{- include "eyniq-cache.labels" . | nindent 4 }}
+    {{- with .Values.management.serviceMonitorLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "eyniq-cache.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: management
+      port: {{ .Values.management.port }}
+      targetPort: management

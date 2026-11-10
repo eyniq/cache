@@ -1,0 +1,164 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "eyniq-cache.fullname" . }}
+  labels:
+    {{- include "eyniq-cache.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "eyniq-cache.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        {{- include "eyniq-cache.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: cache
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+            - name: management
+              containerPort: {{ .Values.management.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "eyniq-cache.fullname" . }}
+          env:
+            {{- if eq .Values.storage.type "s3" }}
+            - name: S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "storage.s3.existingSecret is required" .Values.storage.s3.existingSecret }}
+                  key: S3_ACCESS_KEY_ID
+            - name: S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.storage.s3.existingSecret }}
+                  key: S3_SECRET_ACCESS_KEY
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          # Probes target the management port. Readiness reports 503 when the event loop is
+          # saturated, so Kubernetes stops routing to a busy pod instead of restarting it.
+          startupProbe:
+            httpGet:
+              path: /livez
+              port: management
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: management
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: management
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            {{- if eq .Values.storage.type "fs" }}
+            - name: data
+              mountPath: /data
+            {{- end }}
+            {{- if .Values.allowlist }}
+            - name: allowlist
+              mountPath: /etc/eyniq/allowlist
+              readOnly: true
+            {{- end }}
+            {{- if .Values.auth.existingSecret }}
+            - name: auth
+              mountPath: /etc/eyniq/auth
+              readOnly: true
+            {{- end }}
+            {{- if .Values.users.existingSecret }}
+            - name: users
+              mountPath: /etc/eyniq/users
+              readOnly: true
+            {{- end }}
+      volumes:
+        {{- if eq .Values.storage.type "fs" }}
+        - name: data
+          {{- if .Values.storage.fs.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.storage.fs.persistence.existingClaim | default (printf "%s-data" (include "eyniq-cache.fullname" .)) }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- end }}
+        {{- if .Values.allowlist }}
+        - name: allowlist
+          configMap:
+            name: {{ include "eyniq-cache.fullname" . }}-allowlist
+        {{- end }}
+        {{- if .Values.auth.existingSecret }}
+        - name: auth
+          secret:
+            secretName: {{ .Values.auth.existingSecret }}
+            defaultMode: 0400
+        {{- end }}
+        {{- if .Values.users.existingSecret }}
+        - name: users
+          secret:
+            secretName: {{ .Values.users.existingSecret }}
+            defaultMode: 0400
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      affinity:
+        {{- if .Values.affinity }}
+        {{- toYaml .Values.affinity | nindent 8 }}
+        {{- else }}
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    {{- include "eyniq-cache.selectorLabels" . | nindent 20 }}
+        {{- end }}

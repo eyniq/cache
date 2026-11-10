@@ -1,0 +1,112 @@
+# Eyniq Cache. Every setting maps to an environment variable from docs/DESIGN.md section 10.
+
+replicaCount: 2
+
+image:
+  repository: ghcr.io/eyniq/cache
+  # Defaults to the chart appVersion.
+  tag: ''
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# Required: the base URL clients use (tarball URLs in packuments are rewritten to it), e.g.
+# http://<release>.<namespace>.svc.cluster.local:4873
+publicUrl: ''
+
+config:
+  upstreamUrl: https://registry.npmjs.org
+  minReleaseAge: 3d
+  failClosed: true
+  metadataTtl: 5m
+  lruMaxBytes: 268435456
+  compressMetadata: true
+  compressCacheBytes: 16777216
+  maxPackumentBytes: 104857600
+  maxTarballBytes: 524288000
+  upstreamMaxConnections: 64
+  upstreamTimeout: 30s
+  # Worker threads for packument processing. Set explicitly: Node sees the node's cores,
+  # not the pod's CPU limit.
+  workers: 2
+  workerRecycleBytes: 67108864
+  readyMaxLagMs: 200
+  logLevel: info
+  abbreviatedIncludeTime: false
+
+storage:
+  # fs: a volume shared by all replicas (ReadWriteMany), or s3: an S3-compatible bucket.
+  type: fs
+  fs:
+    persistence:
+      enabled: true
+      existingClaim: ''
+      storageClass: ''
+      accessMode: ReadWriteMany
+      size: 50Gi
+  s3:
+    endpoint: ''
+    region: us-east-1
+    bucket: ''
+    forcePathStyle: false
+    # Secret with keys S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY.
+    existingSecret: ''
+
+auth:
+  # Secret with key tokens.json: { "<name>": "<sha256 hex of the token>" }. Empty = no auth.
+  existingSecret: ''
+
+users:
+  # Secret with key users.json, written with `node dist/main.js user add <name>` (scrypt
+  # hashes): enables npm login and user tokens. Read-only, so USER_REGISTRATION cannot be
+  # used with it (see docs/OPERATIONS.md). Empty = no user accounts.
+  existingSecret: ''
+
+# Minimum release age exceptions, rendered to allowlist.json:
+#   - { package: lodash, version: 4.17.22, reason: security fix, expires: "2026-11-01" }
+allowlist: []
+
+service:
+  type: ClusterIP
+  port: 4873
+
+# /livez, /readyz and /metrics. Kept on its own Service so clients never reach it.
+management:
+  port: 9090
+  serviceMonitorLabels: {}
+
+podAnnotations:
+  prometheus.io/scrape: 'true'
+  prometheus.io/port: '9090'
+  prometheus.io/path: /metrics
+
+# Measured with a 1,010-package dependency set: RSS plateaus around 1.3-1.6 GB under bursts
+# (docs/OPERATIONS.md, Sizing). Keep the limit well above that.
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    memory: 2Gi
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Plain values only; anything secret must use valueFrom.secretKeyRef.
+extraEnv: []
+
+# Restricts who may reach the pods (on by default). The management port (probes, metrics) is
+# unauthenticated by design. With the lists empty only pods in the release's own namespace
+# reach the registry port and nothing but the kubelet reaches the management port: list your
+# client namespaces (and an Ingress controller's namespace) and Prometheus' namespace. Needs a
+# CNI that enforces NetworkPolicy; set enabled=false only if you restrict access elsewhere.
+networkPolicy:
+  enabled: true
+  # Namespaces whose pods may use the registry port (e.g. the namespaces of your CI runners).
+  clientNamespaces: []
+  # Namespaces allowed to scrape the management port (Prometheus).
+  monitoringNamespaces: []
+nodeSelector: {}
+tolerations: []
+# Default: prefer spreading replicas over nodes.
+affinity: {}

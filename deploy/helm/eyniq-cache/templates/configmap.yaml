@@ -1,0 +1,58 @@
+{{- if not .Values.publicUrl }}
+{{- fail "publicUrl is required (the base URL clients use for this cache)" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "eyniq-cache.fullname" . }}
+  labels:
+    {{- include "eyniq-cache.labels" . | nindent 4 }}
+data:
+  PORT: {{ .Values.service.port | quote }}
+  MANAGEMENT_PORT: {{ .Values.management.port | quote }}
+  PUBLIC_URL: {{ .Values.publicUrl | quote }}
+  UPSTREAM_URL: {{ .Values.config.upstreamUrl | quote }}
+  MIN_RELEASE_AGE: {{ .Values.config.minReleaseAge | quote }}
+  FAIL_CLOSED: {{ .Values.config.failClosed | quote }}
+  METADATA_TTL: {{ .Values.config.metadataTtl | quote }}
+  LRU_MAX_BYTES: {{ .Values.config.lruMaxBytes | int64 | quote }}
+  COMPRESS_METADATA: {{ .Values.config.compressMetadata | quote }}
+  COMPRESS_CACHE_BYTES: {{ .Values.config.compressCacheBytes | int64 | quote }}
+  MAX_PACKUMENT_BYTES: {{ .Values.config.maxPackumentBytes | int64 | quote }}
+  MAX_TARBALL_BYTES: {{ .Values.config.maxTarballBytes | int64 | quote }}
+  UPSTREAM_MAX_CONNECTIONS: {{ .Values.config.upstreamMaxConnections | quote }}
+  UPSTREAM_TIMEOUT: {{ .Values.config.upstreamTimeout | quote }}
+  WORKERS: {{ .Values.config.workers | quote }}
+  WORKER_RECYCLE_BYTES: {{ .Values.config.workerRecycleBytes | int64 | quote }}
+  READY_MAX_LAG_MS: {{ .Values.config.readyMaxLagMs | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  ABBREVIATED_INCLUDE_TIME: {{ .Values.config.abbreviatedIncludeTime | quote }}
+  STORAGE: {{ .Values.storage.type | quote }}
+  {{- if eq .Values.storage.type "fs" }}
+  FS_ROOT: /data
+  {{- else }}
+  S3_ENDPOINT: {{ required "storage.s3.endpoint is required" .Values.storage.s3.endpoint | quote }}
+  S3_REGION: {{ .Values.storage.s3.region | quote }}
+  S3_BUCKET: {{ required "storage.s3.bucket is required" .Values.storage.s3.bucket | quote }}
+  S3_FORCE_PATH_STYLE: {{ .Values.storage.s3.forcePathStyle | quote }}
+  {{- end }}
+  {{- if .Values.allowlist }}
+  ALLOWLIST_PATH: /etc/eyniq/allowlist/allowlist.json
+  {{- end }}
+  {{- if .Values.auth.existingSecret }}
+  AUTH_TOKENS_PATH: /etc/eyniq/auth/tokens.json
+  {{- end }}
+  {{- if .Values.users.existingSecret }}
+  USERS_FILE: /etc/eyniq/users/users.json
+  {{- end }}
+{{- if .Values.allowlist }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "eyniq-cache.fullname" . }}-allowlist
+  labels:
+    {{- include "eyniq-cache.labels" . | nindent 4 }}
+data:
+  allowlist.json: {{ .Values.allowlist | toJson | quote }}
+{{- end }}
