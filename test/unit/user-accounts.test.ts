@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { LoginLimiter } from '../../src/auth/login-limiter.ts';
+import { LookupLimiter } from '../../src/auth/lookup-limiter.ts';
 import { hashPassword } from '../../src/auth/password.ts';
 import { UserAccounts } from '../../src/auth/user-accounts.ts';
 import { UserAuth } from '../../src/auth/user-auth.ts';
@@ -209,6 +210,36 @@ describe('UserAccounts', () => {
       );
     for (let i = 0; i < 3; i++) await create();
     await expect(create()).rejects.toMatchObject({ status: 429 });
+  });
+
+  it('bounds the storage reads of logouts of unknown tokens per client address', async () => {
+    let reads = 0;
+    class Counting extends FsStorage {
+      override async open(key: string): ReturnType<FsStorage['open']> {
+        if (key.startsWith('auth/user-tokens/')) reads++;
+        return super.open(key);
+      }
+    }
+    const limited = new UserTokenStore({
+      storage: new Counting(join(dir, 'data')),
+      cacheTtlMs: 0,
+      lookupLimiter: new LookupLimiter({ perAddressRate: 0.001, perAddressBurst: 2 }),
+    });
+    const a = accounts(new LoginLimiter(), { tokens: limited });
+    const from = { ...ctx, clientAddress: '192.0.2.44' };
+    const made = () =>
+      `eyc_${Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url')}`;
+    // A real logout reads storage, revokes the token and gives the budget back.
+    const r = await a.login({ action: 'user-login', name: 'alice', password: PASSWORD }, ctx);
+    await a.logout(r!.token, from);
+    expect(await limited.lookup(r!.token)).toBeNull();
+    reads = 0;
+    // A storm of made-up tokens from that client: only the budget (2) reaches storage.
+    for (let i = 0; i < 10; i++) await a.logout(made(), from);
+    expect(reads).toBe(2);
+    // Another client still has its own budget.
+    await a.logout(made(), { ...ctx, clientAddress: '198.51.100.44' });
+    expect(reads).toBe(3);
   });
 
   it('ends tokens after a password change (new generation) or after the user is removed', async () => {

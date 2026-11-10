@@ -341,10 +341,11 @@ export class UserAccounts implements AccountProvider {
     return tokens.revoke(hash);
   }
 
-  async logout(token: string): Promise<void> {
+  async logout(token: string, ctx?: Pick<AccountContext, 'clientAddress'>): Promise<void> {
     if (!isUserToken(token)) return;
     try {
-      await this.opts.tokens.revoke(hashToken(token));
+      // Unauthenticated: reads for unknown tokens come out of the LookupLimiter budget.
+      await this.opts.tokens.revoke(hashToken(token), { address: ctx?.clientAddress });
     } catch (err) {
       log.error('logout could not revoke the token', errorFields(err));
       throw err;

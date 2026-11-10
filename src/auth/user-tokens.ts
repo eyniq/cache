@@ -8,7 +8,8 @@
 // within that TTL, on the revoking pod at once (a lookup that read the record before the
 // revocation does not cache it). The cache-hit path is a sha256 and a map lookup; storage is
 // read (and a small record parsed) only on a cache miss, and misses for unknown tokens are
-// bounded per client and globally (LookupLimiter). Index markers of expired, revoked or
+// bounded per client and globally (LookupLimiter), as are the reads of an unauthenticated
+// logout. Index markers of expired, revoked or
 // missing tokens are removed (with the expired or revoked record) while a user's tokens are
 // listed, so they do not pile up.
 // Compatible in spirit with downstream token stores, with the community record format.
@@ -219,10 +220,19 @@ export class UserTokenStore {
     return record && this.isActive(record) ? { hash, record } : null;
   }
 
-  /** Marks a token revoked; true when it exists. */
-  async revoke(hash: string): Promise<boolean> {
+  /**
+   * Marks a token revoked; true when it exists. `unverified` (npm logout, which needs no
+   * credentials): nothing has shown that the token exists, so unless this pod already knows
+   * its record the first read is bounded like a lookup of an unknown token (see find), with
+   * `address` keying the client's budget. Beyond the budget it answers false without a read,
+   * as for an unknown token; a read that finds the record gives the budget back.
+   */
+  async revoke(hash: string, unverified?: { address: string | undefined }): Promise<boolean> {
     if (!HASH.test(hash)) return false;
     const key = `${PREFIX}${hash}`;
+    let limiter = unverified && !this.cache.get(hash)?.record ? this.limiter : undefined;
+    const client = unverified?.address;
+    if (limiter && !limiter.take(client)) return false;
     for (let attempt = 0; attempt < 5; attempt++) {
       const opened = this.storage.open ? await this.storage.open(key) : null;
       const info = opened ? { etag: opened.etag } : await this.storage.head(key);
@@ -237,6 +247,9 @@ export class UserTokenStore {
       } else {
         record = info ? await this.read(hash) : null;
       }
+      // Only the first read was charged.
+      if (info && record) limiter?.refund(client);
+      limiter = undefined;
       if (!info || !record) return false;
       if (record.revoked) {
         this.revocations++;
