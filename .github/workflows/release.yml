@@ -115,13 +115,3 @@ jobs:
           subject-name: ${{ env.GHCR_IMAGE }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
-      - name: Sync Docker Hub description
-        if: startsWith(github.ref, 'refs/tags/v') && steps.dockerhub.outputs.enabled == 'true'
-        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: eyniq/cache
-          short-description: Pull-through npm registry cache with a minimum release age gate
-          readme-filepath: ./README.md
-          enable-url-completion: true
