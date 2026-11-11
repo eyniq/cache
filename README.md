@@ -1,6 +1,7 @@
 # Eyniq Cache
 
 [![CI](https://github.com/eyniq/cache/actions/workflows/ci.yml/badge.svg)](https://github.com/eyniq/cache/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/github/v/tag/eyniq/cache?sort=semver&label=version)](https://github.com/eyniq/cache/tags)
 [![License: FSL-1.1-ALv2](https://img.shields.io/badge/license-FSL--1.1--ALv2-blue)](LICENSE)
 
 A pull-through npm registry cache that survives CI bursts without restarts or out-of-memory kills, and enforces a server-side minimum release age. Source-available under FSL-1.1-ALv2.
