@@ -1,0 +1,52 @@
+name: Docker Hub description
+
+# Keeps the Docker Hub short description and overview in sync with README.md.
+# Docker Hub only lets a personal access token with Read, Write, Delete scope edit a repository
+# description (the image push token cannot), so it uses its own secret. Without that secret the
+# job is skipped with a notice instead of failing.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - README.md
+      - .github/workflows/dockerhub-description.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dockerhub-description
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check for a Docker Hub description token
+        id: token
+        env:
+          DOCKERHUB_DESCRIPTION_TOKEN: ${{ secrets.DOCKERHUB_DESCRIPTION_TOKEN }}
+        run: |
+          if [ -n "$DOCKERHUB_DESCRIPTION_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::DOCKERHUB_DESCRIPTION_TOKEN not set: skipping the Docker Hub description sync"
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.token.outputs.enabled == 'true'
+        with:
+          persist-credentials: false
+      - name: Sync Docker Hub description
+        if: steps.token.outputs.enabled == 'true'
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_DESCRIPTION_USERNAME || secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_DESCRIPTION_TOKEN }}
+          repository: eyniq/cache
+          short-description: Pull-through npm registry cache with a minimum release age gate
+          readme-filepath: ./README.md
+          enable-url-completion: true
