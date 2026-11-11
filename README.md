@@ -2,6 +2,9 @@
 
 [![CI](https://github.com/eyniq/cache/actions/workflows/ci.yml/badge.svg)](https://github.com/eyniq/cache/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/github/v/tag/eyniq/cache?sort=semver&label=version)](https://github.com/eyniq/cache/tags)
+[![Docker Hub](https://img.shields.io/docker/v/eyniq/cache?sort=semver&label=docker%20hub&logo=docker&logoColor=white)](https://hub.docker.com/r/eyniq/cache/tags)
+[![Docker pulls](https://img.shields.io/docker/pulls/eyniq/cache?logo=docker&logoColor=white)](https://hub.docker.com/r/eyniq/cache)
+[![GHCR](https://img.shields.io/badge/ghcr.io-eyniq%2Fcache-blue?logo=github)](https://github.com/eyniq/cache/pkgs/container/cache)
 [![License: FSL-1.1-ALv2](https://img.shields.io/badge/license-FSL--1.1--ALv2-blue)](LICENSE)
 
 A pull-through npm registry cache that survives CI bursts without restarts or out-of-memory kills, and enforces a server-side minimum release age. Source-available under FSL-1.1-ALv2.
