@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { LoginLimiter } from '../../src/auth/login-limiter.ts';
+import { LookupLimiter } from '../../src/auth/lookup-limiter.ts';
 import { hashPassword } from '../../src/auth/password.ts';
 import { UserAccounts } from '../../src/auth/user-accounts.ts';
 import { UserAuth } from '../../src/auth/user-auth.ts';
@@ -209,6 +210,58 @@ describe('UserAccounts', () => {
       );
     for (let i = 0; i < 3; i++) await create();
     await expect(create()).rejects.toMatchObject({ status: 429 });
+  });
+
+  it('bounds logouts of unknown tokens per client address and refuses beyond with 429', async () => {
+    let reads = 0;
+    class Counting extends FsStorage {
+      override async open(key: string): ReturnType<FsStorage['open']> {
+        if (key.startsWith('auth/user-tokens/')) reads++;
+        return super.open(key);
+      }
+    }
+    let clock = Date.now();
+    const limited = new UserTokenStore({
+      storage: new Counting(join(dir, 'data')),
+      cacheTtlMs: 0,
+      lookupLimiter: new LookupLimiter({
+        perAddressRate: 0.5,
+        perAddressBurst: 2,
+        now: () => clock,
+      }),
+    });
+    const a = accounts(new LoginLimiter(), { tokens: limited });
+    const from = { ...ctx, clientAddress: '192.0.2.44' };
+    const made = () =>
+      `eyc_${Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url')}`;
+    const refusal = async (token: string) => {
+      try {
+        await a.logout(token, from);
+        return null;
+      } catch (err) {
+        return isHttpError(err) ? { status: err.status, retry: err.headers['retry-after'] } : err;
+      }
+    };
+    // A real logout reads storage, revokes the token and gives the budget back.
+    const r = await a.login({ action: 'user-login', name: 'alice', password: PASSWORD }, ctx);
+    await a.logout(r!.token, from);
+    expect(await limited.lookup(r!.token)).toBeNull();
+    reads = 0;
+    // Unknown tokens within the budget (2) get the usual answer; beyond it a visible 429.
+    expect(await refusal(made())).toBeNull();
+    expect(await refusal(made())).toBeNull();
+    for (let i = 0; i < 8; i++) expect(await refusal(made())).toEqual({ status: 429, retry: '2' });
+    expect(reads).toBe(2);
+    // A real token during the flood is refused too (not reported as logged out)...
+    const real = await a.login({ action: 'user-login', name: 'alice', password: PASSWORD }, ctx);
+    expect(await refusal(real!.token)).toEqual({ status: 429, retry: '2' });
+    expect(await limited.lookup(real!.token)).not.toBeNull();
+    // ...and the retry after Retry-After revokes it.
+    clock += 2_000;
+    expect(await refusal(real!.token)).toBeNull();
+    expect(await limited.lookup(real!.token)).toBeNull();
+    // Another client has its own budget.
+    await a.logout(made(), { ...ctx, clientAddress: '198.51.100.44' });
   });
 
   it('ends tokens after a password change (new generation) or after the user is removed', async () => {
