@@ -25,6 +25,15 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check the tag matches package.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::tag v$tag does not match package.json version $pkg"
+            exit 1
+          fi
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Check for Docker Hub credentials
@@ -55,14 +64,35 @@ jobs:
       - name: Image metadata
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          # Put the OCI annotations on the multi-arch index too, so GHCR shows the description,
+          # licence and source repository on the package page.
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: |
             ${{ env.GHCR_IMAGE }}
             ${{ steps.dockerhub.outputs.enabled == 'true' && env.DOCKERHUB_IMAGE || '' }}
+          # latest=auto: `latest` follows the newest stable semver tag, never a pre-release.
+          flavor: |
+            latest=auto
+          # 1.2.3 -> 1.2.3, 1.2 and 1 (the major tag only from 1.0.0 on, as 0.x minors may break).
+          # Pre-releases (1.3.0-rc.1) only get their full version tag.
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
+          labels: |
+            org.opencontainers.image.title=Eyniq Cache
+            org.opencontainers.image.description=Pull-through npm registry cache with a minimum release age gate
+            org.opencontainers.image.vendor=Eyniq
+            org.opencontainers.image.licenses=FSL-1.1-ALv2
+            org.opencontainers.image.documentation=https://github.com/eyniq/cache#readme
+          annotations: |
+            org.opencontainers.image.title=Eyniq Cache
+            org.opencontainers.image.description=Pull-through npm registry cache with a minimum release age gate
+            org.opencontainers.image.vendor=Eyniq
+            org.opencontainers.image.licenses=FSL-1.1-ALv2
+            org.opencontainers.image.documentation=https://github.com/eyniq/cache#readme
       - name: Build and push
         id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -73,6 +103,7 @@ jobs:
           push: ${{ startsWith(github.ref, 'refs/tags/v') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: mode=max
@@ -84,3 +115,13 @@ jobs:
           subject-name: ${{ env.GHCR_IMAGE }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
+      - name: Sync Docker Hub description
+        if: startsWith(github.ref, 'refs/tags/v') && steps.dockerhub.outputs.enabled == 'true'
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: eyniq/cache
+          short-description: Pull-through npm registry cache with a minimum release age gate
+          readme-filepath: ./README.md
+          enable-url-completion: true
