@@ -1,6 +1,6 @@
 {
   "name": "@eyniq/cache",
-  "version": "0.0.1",
+  "version": "0.1.1",
   "description": "Pull-through npm registry cache with a minimum release age gate. Community edition.",
   "license": "FSL-1.1-ALv2",
   "repository": {
