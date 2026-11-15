@@ -728,6 +728,8 @@ export interface CatalogVersionDetail extends CatalogVersion {
   dependencies: Array<{ kind: string; entries: Array<{ name: string; range: string }> }>;
   /** Only for allowed versions; a URL of this registry. */
   download?: { url: string; integrity?: string };
+  /** Size as the upstream metadata states it: unpacked bytes and number of files. */
+  size?: { unpackedBytes?: number; files?: number };
 }
 
 /**
@@ -754,7 +756,17 @@ export interface CatalogPackage {
 
 export interface CatalogSearchResult {
   total: number;
-  results: Array<{ name: string; version: string; description?: string; date?: string }>;
+  results: Array<{
+    name: string;
+    version: string;
+    description?: string;
+    date?: string;
+    /**
+     * Set by the catalog (not the adapter) when the policy blocks versions of the package and
+     * its metadata is in memory; absent means unknown.
+     */
+    heldBack?: boolean;
+  }>;
 }
 
 /**

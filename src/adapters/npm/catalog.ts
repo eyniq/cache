@@ -42,6 +42,11 @@ function text(v: unknown, max: number): string | undefined {
   return t === '' ? undefined : t.slice(0, max);
 }
 
+/** A non-negative safe integer (sizes and counts from the manifest), else undefined. */
+function count(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : undefined;
+}
+
 function parseObj(bytes: string | Buffer, max: number): Obj {
   if (bytes.length > max) return {};
   try {
@@ -175,6 +180,8 @@ function detail(input: CatalogInput, version: string): CatalogVersionDetail | nu
   const lic = license(manifest.license);
   const url = input.allowed.has(version) ? safeHttpUrl(dist.tarball) : undefined;
   const integrity = text(dist.integrity, 200);
+  const unpackedBytes = count(dist.unpackedSize);
+  const files = count(dist.fileCount);
   return {
     ...versionEntry(input, version),
     ...(deprecated !== undefined ? { deprecated } : {}),
@@ -183,6 +190,14 @@ function detail(input: CatalogInput, version: string): CatalogVersionDetail | nu
     dependencies: dependencies(manifest),
     ...(url !== undefined
       ? { download: { url, ...(integrity !== undefined ? { integrity } : {}) } }
+      : {}),
+    ...(unpackedBytes !== undefined || files !== undefined
+      ? {
+          size: {
+            ...(unpackedBytes !== undefined ? { unpackedBytes } : {}),
+            ...(files !== undefined ? { files } : {}),
+          },
+        }
       : {}),
   };
 }

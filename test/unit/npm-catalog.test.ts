@@ -132,6 +132,32 @@ describe('npm catalog', () => {
     expect(npmCatalog.describe(input({ version: '9.9.9' })).selected).toBeNull();
   });
 
+  it('states the size of the selected version only when the manifest gives sane numbers', () => {
+    const sized = (dist: Record<string, unknown>) =>
+      npmCatalog.describe(
+        input(
+          {},
+          {
+            versions: {
+              '2.0.0': {
+                ...version('2.0.0'),
+                dist: { ...version('2.0.0').dist, ...dist },
+              },
+            },
+            'dist-tags': { latest: '2.0.0' },
+          },
+        ),
+      ).selected?.size;
+    expect(sized({ unpackedSize: 123456, fileCount: 12 })).toEqual({
+      unpackedBytes: 123456,
+      files: 12,
+    });
+    expect(sized({ unpackedSize: 10 })).toEqual({ unpackedBytes: 10 });
+    expect(sized({ unpackedSize: -1, fileCount: '12' })).toBeUndefined();
+    expect(sized({ unpackedSize: 1.5, fileCount: Number.MAX_SAFE_INTEGER + 2 })).toBeUndefined();
+    expect(sized({})).toBeUndefined();
+  });
+
   it('returns the README source', () => {
     expect(npmCatalog.readme(input())).toBe('# Lib\n\nHello');
     expect(npmCatalog.readme(input({}, { readme: undefined }))).toBeNull();
