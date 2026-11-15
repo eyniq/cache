@@ -228,6 +228,7 @@ async function load(opts: {
     addEventListener: () => undefined,
     setTimeout: (fn: () => void) => timers.push(fn),
     clearTimeout: () => undefined,
+    scrollTo: () => undefined,
   });
   vi.stubGlobal('fetch', fetchFake);
   vi.stubGlobal('Element', FakeNode);

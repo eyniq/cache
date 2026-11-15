@@ -202,7 +202,9 @@ function show(nodes, title, home = false) {
   main.replaceChildren(...nodes.filter((n) => n !== null));
   document.body.classList.toggle('home', home);
   document.title = `${title} - Eyniq Cache`;
-  main.focus();
+  // A new page starts at the top; focusing must not scroll it under the sticky app bar.
+  window.scrollTo(0, 0);
+  main.focus({ preventScroll: true });
   announce(title);
 }
 

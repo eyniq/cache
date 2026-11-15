@@ -304,19 +304,28 @@
   }
 }
 
+/* More contrast: the high-contrast role colors all sit at one lightness, which makes series
+   hard to tell apart, so the charts get their own darker (lighter in dark) set of the same
+   four hues, each at least 6.5:1 on the card. */
 @media (prefers-contrast: more) {
   :root {
-    --c3: #7a1f57;
+    --c0: #005a50;
+    --c1: #7d5400;
+    --c2: #2c5aa8;
+    --c3: #a3256a;
   }
 }
 
 @media (prefers-color-scheme: dark) and (prefers-contrast: more) {
   :root {
-    --c3: #ffc2e0;
-    --c0-inv: #00443c;
-    --c1-inv: #523600;
-    --c2-inv: #1d3b6b;
-    --c3-inv: #7a1f57;
+    --c0: #57f1db;
+    --c1: #ffc35a;
+    --c2: #a9c4ff;
+    --c3: #ff8fc4;
+    --c0-inv: #005a50;
+    --c1-inv: #7d5400;
+    --c2-inv: #2c5aa8;
+    --c3-inv: #a3256a;
     --ce-inv: #7e0007;
   }
 }
@@ -2165,6 +2174,11 @@ td.share {
 }
 
 @media (max-width: 599.98px) {
+  /* The app bar wraps to two rows here (brand, then search). */
+  html {
+    scroll-padding-top: calc(var(--eyq-app-bar-height) * 2 + var(--eyq-space-2));
+  }
+
   main {
     padding: var(--eyq-space-4) var(--eyq-grid-margin);
   }
