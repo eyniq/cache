@@ -138,6 +138,10 @@ describe('sums and the previous period', () => {
     expect(s.p95).toBe(0.9);
   });
 
+  /** The 12 five-minute buckets of the hour before the current one (6400..9700). */
+  const hourBefore = (requests: number, count = 12) =>
+    Array.from({ length: count }, (_, i) => bucket(6_400 + i * 300, { requests }));
+
   it('takes the period right before the range from the buckets of a longer range', () => {
     const cur = stats();
     const wider = stats({
@@ -145,22 +149,21 @@ describe('sums and the previous period', () => {
       from: 13_600 - 86_400,
       step: 300,
       series: [
-        bucket(6_000, { requests: 7 }), // before the previous hour
-        bucket(6_600, { requests: 40 }),
-        bucket(9_600, { requests: 10 }),
-        bucket(10_200, { requests: 500 }), // already inside the current hour
+        bucket(5_800, { requests: 7 }), // before the previous hour
+        ...hourBefore(5),
+        bucket(10_300, { requests: 500 }), // already inside the current hour
       ],
     });
     const prev = m.previousPeriod(cur, wider);
-    expect(prev?.requests).toBe(50);
-    expect(prev?.buckets).toBe(2);
+    expect(prev?.requests).toBe(60);
+    expect(prev?.buckets).toBe(12);
   });
 
   it('has no previous period when the longer range starts too late or recorded nothing', () => {
     const cur = stats();
     expect(m.previousPeriod(cur, null)).toBeNull();
     expect(
-      m.previousPeriod(cur, stats({ range: '24h', from: 9_000, step: 300, series: [] })),
+      m.previousPeriod(cur, stats({ range: '24h', from: 9_000, step: 300, series: hourBefore(5) })),
     ).toBeNull();
     expect(
       m.previousPeriod(
@@ -168,6 +171,17 @@ describe('sums and the previous period', () => {
         stats({ range: '24h', from: 13_600 - 86_400, step: 300, series: [bucket(12_000)] }),
       ),
     ).toBeNull();
+  });
+
+  it('does not compare with a period that was mostly not recorded', () => {
+    // The registry started 10 minutes before the current hour: 2 of 12 buckets exist. Comparing
+    // a full hour with those would read as a huge jump.
+    const cur = stats();
+    const wider = (series: Bucket[]) =>
+      stats({ range: '24h', from: 13_600 - 86_400, step: 300, series });
+    expect(m.previousPeriod(cur, wider(hourBefore(5).slice(10)))).toBeNull();
+    expect(m.previousPeriod(cur, wider(hourBefore(5, 10)))).toBeNull();
+    expect(m.previousPeriod(cur, wider(hourBefore(5, 11)))?.requests).toBe(55);
   });
 
   it('knows a longer range for every range but the longest', () => {
@@ -261,16 +275,50 @@ describe('health thresholds', () => {
     expect(m.assess(few).level).not.toBe('warn');
   });
 
-  it('grades latency p95 at 3 s and 10 s and the event loop at 100 ms and 500 ms', () => {
-    const lat = (p95: number) => stats({}, { latency: { p50: 0, p95, p99: p95 } });
-    expect(levelOf(lat(2.9), 'latency')).toBe('ok');
-    expect(levelOf(lat(3), 'latency')).toBe('warn');
-    expect(levelOf(lat(10), 'latency')).toBe('bad');
-    expect(levelOf(stats({}, { latency: null }), 'latency')).toBe('idle');
-    const loop = (max: number) => stats({}, { gauges: { loopP99: { avg: 0, max } } });
-    expect(levelOf(loop(0.09), 'loop')).toBe('ok');
-    expect(levelOf(loop(0.1), 'loop')).toBe('warn');
-    expect(levelOf(loop(0.5), 'loop')).toBe('bad');
+  /** `slow` of 100 intervals with the given p95, the rest fast. */
+  const withLatency = (slow: number, p95: number) =>
+    stats(
+      {
+        series: Array.from({ length: 100 }, (_, i) =>
+          bucket(10_000 + i * 30, { latency: { p50: 0, p95: i < slow ? p95 : 0.2, p99: 1 } }),
+        ),
+      },
+      { latency: { p50: 0, p95: slow > 0 ? p95 : 0.2, p99: 1 } },
+    );
+  const withLoop = (slow: number, max: number) =>
+    stats({
+      series: Array.from({ length: 100 }, (_, i) =>
+        bucket(10_000 + i * 30, { gauges: { loopP99: { avg: 0, max: i < slow ? max : 0.01 } } }),
+      ),
+    });
+
+  it('grades latency by the share of slow intervals: 5% at 3 s degrade, 5% at 10 s fail', () => {
+    expect(levelOf(withLatency(0, 0), 'latency')).toBe('ok');
+    expect(levelOf(withLatency(4, 4), 'latency')).toBe('ok');
+    expect(levelOf(withLatency(5, 4), 'latency')).toBe('warn');
+    expect(levelOf(withLatency(4, 12), 'latency')).toBe('ok');
+    expect(levelOf(withLatency(5, 12), 'latency')).toBe('bad');
+  });
+
+  it('does not let one slow interval mark a whole range', () => {
+    // The range's own p95 is its worst interval (12 s here); 1 of 100 intervals is not an incident.
+    const d = withLatency(1, 12);
+    expect(d.totals.latency?.p95).toBe(12);
+    expect(levelOf(d, 'latency')).toBe('ok');
+    expect(m.assess(d).level).toBe('ok');
+    expect(levelOf(withLoop(1, 2), 'loop')).toBe('ok');
+  });
+
+  it('grades the event loop the same way at 100 ms and 500 ms', () => {
+    expect(levelOf(withLoop(5, 0.09), 'loop')).toBe('ok');
+    expect(levelOf(withLoop(5, 0.1), 'loop')).toBe('warn');
+    expect(levelOf(withLoop(5, 0.5), 'loop')).toBe('bad');
+  });
+
+  it('needs five intervals before it judges latency or the event loop', () => {
+    const few = stats({ series: [bucket(13_000, { latency: { p50: 0, p95: 20, p99: 20 } })] });
+    expect(levelOf(few, 'latency')).toBe('idle');
+    expect(levelOf(few, 'loop')).toBe('idle');
   });
 
   it('warns on any lost storage write and fails from 5% of enough writes', () => {

@@ -2022,20 +2022,16 @@ td.share {
   stroke: none;
 }
 
-.plot .line.s1 {
+.plot .line.d1 {
   stroke-dasharray: 7 4;
 }
 
-.plot .line.s2 {
+.plot .line.d2 {
   stroke-dasharray: 2 4;
 }
 
-.plot .line.s3 {
+.plot .line.d3 {
   stroke-dasharray: 9 4 2 4;
-}
-
-.plot .line.se {
-  stroke-dasharray: 4 3;
 }
 
 /* The readout: guide line, a ring per series (2 px surface ring) and an inverse plate. */

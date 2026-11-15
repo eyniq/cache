@@ -7,6 +7,7 @@ import { HttpError, announce, api, h, icon, internalLink, statusLabel } from './
 import { lineChart, meter, sparkline, stackedBar } from './charts.js';
 import {
   COMPARE_RANGE,
+  COMPARE_REFRESH_MS,
   LEVEL_LABELS,
   REFRESH_INTERVAL_MS,
   STATS_RANGES,
@@ -59,28 +60,32 @@ function levelLabel(level, text, title) {
 }
 
 /**
- * The range and, when there is a longer one, the period before it for the comparison. The
- * second call runs after the first (the server computes at most two ranges at once); when it
- * fails there simply is no comparison.
+ * The period before `data` for the comparison, from the next longer range. It is read after
+ * the range itself (the server computes at most two ranges at once); null when there is no
+ * longer range or nothing comparable in it, and it throws when it cannot be read.
+ * @param {StatsResponse} data
+ * @returns {Promise<Summary | null>}
+ */
+async function loadPrevious(data) {
+  const wider = COMPARE_RANGE[data.range];
+  if (wider === undefined || data.series.length === 0) return null;
+  /** @type {StatsResponse} */
+  const more = await api(`stats?${new URLSearchParams({ range: wider }).toString()}`);
+  return previousPeriod(data, more);
+}
+
+/**
  * @param {string} range
  * @returns {Promise<{ data: StatsResponse, previous: Summary | null }>}
  */
 async function load(range) {
   /** @type {StatsResponse} */
   const data = await api(`stats?${new URLSearchParams({ range }).toString()}`);
-  const wider = COMPARE_RANGE[range];
-  /** @type {Summary | null} */
-  let previous = null;
-  if (wider !== undefined && data.series.length > 0) {
-    try {
-      /** @type {StatsResponse} */
-      const more = await api(`stats?${new URLSearchParams({ range: wider }).toString()}`);
-      previous = previousPeriod(data, more);
-    } catch {
-      previous = null;
-    }
+  try {
+    return { data, previous: await loadPrevious(data) };
+  } catch {
+    return { data, previous: null };
   }
-  return { data, previous };
 }
 
 /** @param {number} ms */
@@ -321,7 +326,7 @@ function kpis(s) {
         ...base,
         label: 'Latency p95',
         value: t.latency === null ? 'n/a' : formatDuration(t.latency.p95),
-        note: 'Worst pod and route',
+        note: 'Worst interval, pod and route',
         change: delta(t.latency?.p95 ?? null, prev?.p95, { kind: 'relative', better: 'down' }),
         spark: seriesOf(data, (b) => b.latency?.p95),
         slot: 's2',
@@ -393,7 +398,7 @@ function healthPanel(data) {
     {
       status: levelLabel(health.level),
       wide: true,
-      note: 'Derived from this range with fixed thresholds: 5xx share 1% and 5%, upstream failures 5% and 25%, latency p95 3 s and 10 s, event-loop delay p99 100 ms and 500 ms, any lost storage write.',
+      note: 'Derived from this range with fixed thresholds: 5xx share 1% and 5%, upstream failures 5% and 25%, 5% of the intervals with latency p95 from 3 s or 10 s, or with event-loop delay p99 from 100 ms or 500 ms, and any lost storage write.',
     },
   );
 }
@@ -467,7 +472,7 @@ function routesPanel(data) {
     'p-routes',
     'Request mix by route',
     [
-      h('div', { class: 'table-scroll', tabindex: '0' }, [
+      h('div', { class: 'table-scroll', tabindex: '0', id: 'p-routes-scroll' }, [
         h('table', { class: 'data' }, [
           h('caption', { class: 'visually-hidden' }, ['Requests, errors and latency per route']),
           h('thead', {}, [
@@ -639,7 +644,7 @@ function podsPanel(data) {
     'p-pods',
     'Pods',
     [
-      h('div', { class: 'table-scroll', tabindex: '0' }, [
+      h('div', { class: 'table-scroll', tabindex: '0', id: 'p-pods-scroll' }, [
         h('table', { class: 'data' }, [
           h('caption', { class: 'visually-hidden' }, ['Memory and last record per pod']),
           h('thead', {}, [
@@ -990,6 +995,9 @@ function runLive(kind, range, first, ui) {
     paused: false,
   };
   let gone = false;
+  /** Whether the router has left this page (asked again after every await). */
+  const left = () => gone;
+  let comparedAt = Date.now();
   const root = h('div', { class: kind === 'home' ? 'dash' : 'dash stats', id: 'live' });
   const actions = {
     refreshNow: () => {
@@ -1016,12 +1024,24 @@ function runLive(kind, range, first, ui) {
     },
     run: async () => {
       try {
-        const next = await load(range);
+        /** @type {StatsResponse} */
+        const data = await api(`stats?${new URLSearchParams({ range }).toString()}`);
         if (gone) return;
-        state.data = next.data;
-        state.previous = next.previous;
+        state.data = data;
         state.loadedAt = Date.now();
         state.failedAt = null;
+        // The comparison moves slowly: read it again every few minutes, and keep the last
+        // one when that read fails.
+        if (Date.now() - comparedAt >= COMPARE_REFRESH_MS) {
+          try {
+            const previous = await loadPrevious(data);
+            if (left()) return;
+            state.previous = previous;
+            comparedAt = Date.now();
+          } catch {
+            // keep the comparison already shown
+          }
+        }
       } catch (err) {
         if (gone) return;
         // No longer allowed (signed out, stats turned off): leave the page as a first load

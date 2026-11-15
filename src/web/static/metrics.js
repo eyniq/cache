@@ -34,6 +34,12 @@ export const COMPARE_RANGE = /** @type {Readonly<Record<string, string>>} */ ({
   '90d': '1y',
 });
 
+/** The share of the previous period that must be recorded before it is compared with. */
+export const PREVIOUS_MIN_COVERAGE = 0.9;
+
+/** The comparison range changes slowly: it is read again at most this often. */
+export const COMPARE_REFRESH_MS = 300_000;
+
 /** How often the dashboard and the statistics page reload their numbers. */
 export const REFRESH_INTERVAL_MS = 30_000;
 
@@ -47,10 +53,14 @@ export const THRESHOLDS = Object.freeze({
   serverErrors: { warn: 0.01, bad: 0.05, minSamples: 20 },
   /** Share of failed upstream fetches. */
   upstreamErrors: { warn: 0.05, bad: 0.25, minSamples: 10 },
-  /** Request latency p95 in seconds (worst pod and route, an upper bound). */
-  latencyP95: { warn: 3, bad: 10 },
-  /** Event-loop delay p99 in seconds (highest sample in the range). */
-  loopP99: { warn: 0.1, bad: 0.5 },
+  /**
+   * Request latency p95 in seconds (worst pod and route of an interval, an upper bound). A
+   * range's own figure is its worst interval, so one slow minute would mark a whole month:
+   * the level counts the share of intervals at or above the limit instead.
+   */
+  latencyP95: { warn: 3, bad: 10, share: 0.05, minSamples: 5 },
+  /** Event-loop delay p99 in seconds (highest sample of an interval), graded the same way. */
+  loopP99: { warn: 0.1, bad: 0.5, share: 0.05, minSamples: 5 },
   /** Share of background storage writes that failed or were dropped; any loss warns. */
   writeLoss: { bad: 0.05, minSamples: 20 },
   /**
@@ -208,9 +218,14 @@ export function previousPeriod(current, wider) {
   const start = current.from - length;
   // Whole buckets only; the first one may start up to one step early.
   if (wider.from > start + wider.step) return null;
-  const buckets = wider.series.filter((b) => b.t >= start - wider.step / 2 && b.t < current.from);
-  const before = buckets.filter((b) => b.t + wider.step <= current.from + wider.step / 2);
-  return before.length > 0 ? summarize(before) : null;
+  const before = wider.series.filter(
+    (b) => b.t >= start - wider.step / 2 && b.t + wider.step <= current.from + wider.step / 2,
+  );
+  // A pod writes a record every interval, so the number of buckets says how much of the
+  // period was recorded. A period that is mostly missing (the registry was not running yet)
+  // would turn every delta into a huge jump: no comparison then.
+  const expected = Math.max(1, Math.round(length / wider.step));
+  return before.length >= expected * PREVIOUS_MIN_COVERAGE ? summarize(before) : null;
 }
 
 /**
@@ -266,6 +281,23 @@ function grade(value, t) {
   return value >= t.bad ? 'bad' : value >= t.warn ? 'warn' : 'ok';
 }
 
+/**
+ * Grades a measure by how many intervals reach the limits, not by its single worst interval.
+ * @param {Array<number | null | undefined>} values one per interval; missing ones are skipped
+ * @param {{ warn: number, bad: number, share: number, minSamples: number }} t
+ * @returns {{ level: Level, detail: string }}
+ */
+export function gradeIntervals(values, t) {
+  const seen = values.flatMap((v) => (v === null || v === undefined ? [] : [v]));
+  const over = seen.filter((v) => v >= t.warn).length;
+  const far = seen.filter((v) => v >= t.bad).length;
+  const detail = `${formatCount(over)} of ${formatCount(seen.length)} intervals`;
+  if (seen.length < t.minSamples) return { level: 'idle', detail };
+  const level =
+    far / seen.length >= t.share ? 'bad' : over / seen.length >= t.share ? 'warn' : 'ok';
+  return { level, detail };
+}
+
 /** @param {Level[]} levels @returns {Level} */
 export function worst(levels) {
   if (levels.includes('bad')) return 'bad';
@@ -311,21 +343,28 @@ export function assess(data) {
     value: t.upstreamRequests > 0 ? formatValue(upShare, '%') : 'n/a',
     detail: `${formatCount(t.upstreamErrors)} of ${formatCount(t.upstreamRequests)} upstream fetches failed`,
   });
+  const lat = gradeIntervals(
+    data.series.map((b) => b.latency?.p95),
+    THRESHOLDS.latencyP95,
+  );
   checks.push({
     id: 'latency',
     label: 'Latency p95',
-    level: t.latency === null ? 'idle' : grade(t.latency.p95, THRESHOLDS.latencyP95),
+    level: lat.level,
     value: t.latency === null ? 'n/a' : formatDuration(t.latency.p95),
-    detail: 'Worst pod and route in the range (an upper bound)',
+    detail: `Worst interval, pod and route. ${lat.detail} at or above ${formatDuration(THRESHOLDS.latencyP95.warn)}`,
   });
   const loop = t.gauges?.loopP99;
+  const loops = gradeIntervals(
+    data.series.map((b) => b.gauges?.loopP99?.max),
+    THRESHOLDS.loopP99,
+  );
   checks.push({
     id: 'loop',
     label: 'Event loop',
-    level:
-      loop === undefined || data.series.length === 0 ? 'idle' : grade(loop.max, THRESHOLDS.loopP99),
+    level: loops.level,
     value: loop === undefined || data.series.length === 0 ? 'n/a' : formatDuration(loop.max),
-    detail: 'Highest event-loop delay p99 in the range',
+    detail: `Highest event-loop delay p99. ${loops.detail} at or above ${formatDuration(THRESHOLDS.loopP99.warn)}`,
   });
   const w = t.writes;
   if (w !== undefined) {

@@ -118,8 +118,11 @@ function statsBody(range: string, requests = 240) {
   const length = range === '24h' ? 86_400 : 7 * 86_400;
   const step = range === '24h' ? 300 : 3600;
   const from = to - length;
-  // 24h: two recent buckets. 7d: also two buckets in the day before the last one.
-  const times = range === '24h' ? [to - 600, to - 300] : [from + 3600, to - 2 * 86_400 + 7200];
+  // 24h: two recent buckets. 7d: every hour of the day before the last one.
+  const times =
+    range === '24h'
+      ? [to - 600, to - 300]
+      : Array.from({ length: 24 }, (_, i) => to - 2 * 86_400 + i * 3600);
   return {
     range,
     from,
@@ -138,7 +141,7 @@ function statsBody(range: string, requests = 240) {
       },
       artifact: { requests: 40, clientErrors: 0, serverErrors: 0, latency: null },
     },
-    series: times.map((t) => bucket(t, range === '24h' ? {} : { requests: 60, blocked: 1 })),
+    series: times.map((t) => bucket(t, range === '24h' ? {} : { requests: 5, blocked: 1 })),
     perPod: {
       'pod-a': [{ t: to - 300, rss: 5e7, heap: 2e7 }],
       'pod-old': [{ t: to - 40_000, rss: 4e7, heap: 2e7 }],
@@ -329,8 +332,8 @@ describe('catalog start page', () => {
     const l = await load({ stats: true });
     expect(statsCalls(l).map((u) => u.split('range=')[1])).toEqual(['24h', '7d']);
     const kpis = l.main.find(hasClass('kpis'));
-    // 240 requests now, 60 in the day before: up 300%.
-    expect(kpis?.textContent).toContain('+300%');
+    // 240 requests now, 24 x 5 = 120 in the day before: up 100%.
+    expect(kpis?.textContent).toContain('+100%');
     expect(kpis?.textContent).toContain('vs previous 24h');
     expect(kpis?.all(hasClass('delta'))).toHaveLength(6);
   });
@@ -354,8 +357,10 @@ describe('dashboard refresh', () => {
     expect(l.timers).toHaveLength(1);
     l.answers.requests = 999;
     await tick(l);
-    expect(statsCalls(l)).toHaveLength(4);
+    // Only the range itself: the comparison is read again every few minutes, not every tick.
+    expect(statsCalls(l).map((u) => u.split('range=')[1])).toEqual(['24h', '7d', '24h']);
     expect(l.main.find(hasId('live'))).toBe(root);
+    expect(l.main.find(hasClass('kpis'))?.textContent).toContain('vs previous 24h');
     expect(l.main.find(hasClass('kpis'))?.textContent).toContain('999');
     expect(l.main.focused).toBe(focused);
     // The schedule goes on.
@@ -369,7 +374,7 @@ describe('dashboard refresh', () => {
     expect(statsCalls(l)).toHaveLength(2);
     l.doc.hidden = false;
     await tick(l);
-    expect(statsCalls(l)).toHaveLength(4);
+    expect(statsCalls(l)).toHaveLength(3);
   });
 
   it('keeps the numbers and says so when a reload fails', async () => {

@@ -248,17 +248,20 @@ WEB_SESSION_TTL=1h              # sign-in lifetime (with USERS_FILE)
   tab does not poll; "Pause" stops it). The server caches a range for 30 s and a pod saves its
   history every 5 minutes, so the newest point can be a few minutes old; the page says through
   which minute the data runs. The change against the previous period comes from the next longer
-  range (one more read of the same cached reader); the longest range has none.
+  range (one more read of the same cached reader, repeated every 5 minutes); the longest range
+  has none, and a previous period of which less than 90% was recorded is not compared with.
 - Status labels (always with text) use fixed thresholds over the selected range:
 
-  | Check          | Degraded                 | Failing                       | Needs               |
-  | -------------- | ------------------------ | ----------------------------- | ------------------- |
-  | Server errors  | 5xx share at least 1%    | at least 5%                   | 20 requests         |
-  | Upstream       | failed fetches 5% and up | 25% and up                    | 10 upstream fetches |
-  | Latency p95    | 3 s and up               | 10 s and up                   | any request         |
-  | Event loop     | delay p99 from 100 ms    | from 500 ms                   | any record          |
-  | Storage writes | any failed or dropped    | 5% and up (20 writes or more) | any write           |
+  | Check          | Degraded                           | Failing                       | Needs               |
+  | -------------- | ---------------------------------- | ----------------------------- | ------------------- |
+  | Server errors  | 5xx share at least 1%              | at least 5%                   | 20 requests         |
+  | Upstream       | failed fetches 5% and up           | 25% and up                    | 10 upstream fetches |
+  | Latency p95    | 5% of the intervals at 3 s or more | 5% of them at 10 s or more    | 5 intervals         |
+  | Event loop     | 5% of the intervals at 100 ms p99  | 5% of them at 500 ms or more  | 5 intervals         |
+  | Storage writes | any failed or dropped              | 5% and up (20 writes or more) | any write           |
 
+  Latency and event-loop delay are graded by intervals (the steps of the range) because the
+  figure of a whole range is its worst interval: one slow minute must not mark a month.
   Below the sample minimum a check reads "No data" and never counts against the overall status,
   which is the worst check. A pod is "Reporting" while its newest record is at most three steps
   (and at least 15 minutes plus one step) old; pods of earlier rollouts show as "Not reporting"

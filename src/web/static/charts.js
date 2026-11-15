@@ -21,12 +21,21 @@ const PAD = { left: 64, right: 14, top: 12, bottom: 26 };
 export const SERIES_SLOTS = ['s0', 's1', 's2', 's3'];
 const CHAR_W = 6.4;
 
-/** @param {number} max */
-export function niceMax(max) {
-  if (!(max > 0)) return 1;
+/**
+ * A round axis maximum. With `whole` (the number of grid lines of a chart that counts things)
+ * every tick is a whole number.
+ * @param {number} max
+ * @param {number} [whole]
+ */
+export function niceMax(max, whole = 0) {
+  if (!(max > 0)) return whole > 0 ? whole : 1;
+  if (whole > 0 && max <= whole) return whole;
   const exp = 10 ** Math.floor(Math.log10(max));
-  for (const m of [1, 2, 2.5, 5, 10]) if (m * exp >= max) return m * exp;
-  return 10 * exp;
+  for (const m of whole > 0 ? [1, 2, 4, 6, 8, 10] : [1, 2, 2.5, 5, 10]) {
+    const top = m * exp;
+    if (top >= max && (whole === 0 || Number.isInteger(top / whole))) return top;
+  }
+  return 10 * exp * (whole > 0 && !Number.isInteger((10 * exp) / whole) ? 2 : 1);
 }
 
 /** @param {number} sec @param {string} range */
@@ -68,12 +77,16 @@ export function lineChart(spec, data) {
   const W = spec.compact === true ? 440 : CHART_W;
   const padLeft = spec.compact === true ? 56 : PAD.left;
   const height = spec.compact === true ? 170 : 230;
+  const lines = spec.compact === true ? 2 : 4;
   const plotW = W - padLeft - PAD.right;
   const plotH = height - PAD.top - PAD.bottom;
   const max =
     spec.unit === '%'
       ? 1
-      : niceMax(Math.max(...series.flatMap((s) => s.points.map((p) => p.v)), 0));
+      : niceMax(
+          Math.max(...series.flatMap((s) => s.points.map((p) => p.v)), 0),
+          spec.unit === '' ? lines : 0,
+        );
   const span = Math.max(1, data.to - data.from);
   /** @param {number} t */
   const x = (t) => padLeft + (Math.min(Math.max(t - data.from, 0), span) / span) * plotW;
@@ -93,7 +106,6 @@ export function lineChart(spec, data) {
     class: 'plot',
   });
   root.append(svg('title', {}, [spec.title]), svg('desc', { id: `${spec.id}-desc` }, [summary]));
-  const lines = spec.compact === true ? 2 : 4;
   for (let i = 0; i <= lines; i++) {
     const v = (max * i) / lines;
     root.append(
@@ -133,7 +145,8 @@ export function lineChart(spec, data) {
       d += `${gapBefore ? 'M' : 'L'}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)} `;
       prev = p.t;
     });
-    root.append(svg('path', { class: `line ${cls}`, d: d.trim() }));
+    // The dash follows the position in the chart (the first series is solid), the color the series.
+    root.append(svg('path', { class: `line ${cls} d${String(i)}`, d: d.trim() }));
     // A point without neighbours draws no line: it gets a dot. Short series get all dots.
     for (const p of s.points.length <= 24 ? s.points : lone) {
       root.append(
@@ -230,6 +243,7 @@ export function lineChart(spec, data) {
     'div',
     {
       class: 'plot-wrap',
+      id: `${spec.id}-plot`,
       tabindex: '0',
       role: 'group',
       'aria-label': `${spec.title}. Use the left and right arrow keys to read the values.`,
@@ -276,7 +290,7 @@ export function lineChart(spec, data) {
   }
   if (spec.compact === true) return figure;
   const details = h('details', { class: 'chart-table', id: `${spec.id}-table` }, [
-    h('summary', {}, ['Show as table']),
+    h('summary', { id: `${spec.id}-summary` }, ['Show as table']),
   ]);
   let built = false;
   const build = () => {
@@ -329,7 +343,7 @@ function dataTable(spec, series) {
       ),
     ),
   ]);
-  return h('div', { class: 'table-scroll', tabindex: '0' }, [table]);
+  return h('div', { class: 'table-scroll', tabindex: '0', id: `${spec.id}-scroll` }, [table]);
 }
 
 /**

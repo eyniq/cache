@@ -54,6 +54,7 @@ export {
   type StatsRange,
   type StatsReaderOptions,
   type StatsResult,
+  type StatsRouteStat,
 } from './stats/reader.ts';
 export type { StatsTier, WriteStat } from './stats/types.ts';
 export {
