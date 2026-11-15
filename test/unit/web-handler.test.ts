@@ -208,3 +208,24 @@ function rawLogin(url: URL, body: string, length: number): Socket {
   socket.on('error', () => undefined);
   return socket;
 }
+
+describe('web catalog statistics availability', () => {
+  it('reports stats: false and answers 404 on the stats API when no reader is configured', async () => {
+    const base = await start();
+    const session = (await (await fetch(`${base}/-/web/api/session`)).json()) as {
+      stats: boolean;
+    };
+    expect(session.stats).toBe(false);
+    expect((await fetch(`${base}/-/web/api/stats?range=24h`)).status).toBe(404);
+  });
+
+  it('reports stats: true when a reader is configured', async () => {
+    const base = await start({
+      stats: { query: () => Promise.resolve({ range: '24h' }) },
+    } as unknown as Partial<WebHandlerDeps>);
+    const session = (await (await fetch(`${base}/-/web/api/session`)).json()) as {
+      stats: boolean;
+    };
+    expect(session.stats).toBe(true);
+  });
+});

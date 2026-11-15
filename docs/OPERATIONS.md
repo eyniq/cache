@@ -235,6 +235,14 @@ WEB_UI_IMAGES=true              # optional: README images (https only, loaded by
 WEB_SESSION_TTL=1h              # sign-in lifetime (with USERS_FILE)
 ```
 
+- Start page: with statistics available (`STATS_HISTORY=true`, `WEB_STATS=true`, and a reader
+  allowed to see them) `/-/web/` is a dashboard: search box, key figures (hit ratio, requests,
+  p95 latency, blocked versions, upstream errors), compact trend charts and a range switch
+  (`?range=1h|24h|7d|30d|90d|1y`), linking to the full statistics page. Without statistics, or
+  when they cannot be read, it is the plain search-first home. It uses only the data of
+  `/-/web/api/stats`; nothing new is collected.
+- Look: Eyniq design system (B2B register, lagoon-teal product accent), light, dark and high
+  contrast following the browser. System fonts only for now (the CSP has no `font-src`).
 - Read-only: search, package pages (versions, dist-tags, dependencies, links, install
   commands, tarball link) and READMEs. Versions the policy blocks are listed with the reason
   and the time they become allowed, never offered for download.
