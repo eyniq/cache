@@ -266,11 +266,16 @@ let session = {
   stats: false,
 };
 
-/** @param {Array<Node | null>} nodes @param {string} title */
-function show(nodes, title) {
+/**
+ * @param {Array<Node | null>} nodes
+ * @param {string} title
+ * @param {boolean} [home] the start page has its own search, so the app bar's is hidden
+ */
+function show(nodes, title, home = false) {
   const main = byId('main');
   main.replaceChildren(...nodes.filter((n) => n !== null));
-  document.title = `${title} - Package catalog`;
+  document.body.classList.toggle('home', home);
+  document.title = `${title} - Eyniq Cache`;
   main.focus();
   announce(title);
 }
@@ -311,17 +316,174 @@ function showError(err) {
   show([h('h1', {}, ['Error']), h('p', { class: 'error' }, [message])], 'Error');
 }
 
-function homePage() {
-  show(
+/** @param {string} id */
+function searchForm(id) {
+  return h(
+    'form',
+    { class: 'search hero-search', role: 'search', action: `${BASE}/search`, method: 'get' },
     [
+      h('label', { class: 'visually-hidden', for: id }, ['Search packages']),
+      h('input', {
+        id,
+        name: 'q',
+        type: 'search',
+        placeholder: 'Search packages',
+        maxlength: '512',
+        autocomplete: 'off',
+      }),
+      h('button', { type: 'submit' }, ['Search']),
+    ],
+  );
+}
+
+/** @returns {Node[]} */
+function heroNodes() {
+  return [
+    h('section', { class: 'hero' }, [
       h('h1', {}, ['Package catalog']),
       h('p', { class: 'muted' }, [
         'Search the packages this registry serves: its own and the ones it caches. Versions the registry policy holds back are shown with the reason.',
       ]),
+      searchForm('q-home'),
+    ]),
+  ];
+}
+
+/** The search-first start page: used without statistics, and when they cannot be shown. */
+function searchHome() {
+  show(heroNodes(), 'Home', true);
+  byId('q-home').focus();
+}
+
+/**
+ * The start page. With statistics available it is the dashboard; for any reason it cannot be
+ * built (disabled, not authorized, busy, failed) it quietly becomes the search-first home.
+ * @param {string | null} range
+ */
+async function homePage(range) {
+  if (!session.stats) {
+    searchHome();
+    return;
+  }
+  const chosen = range !== null && STATS_RANGES.includes(range) ? range : '24h';
+  /** @type {StatsResponse} */
+  let data;
+  try {
+    data = await api(`stats?${new URLSearchParams({ range: chosen }).toString()}`);
+  } catch {
+    searchHome();
+    return;
+  }
+  const step = data.step;
+  const t = data.totals;
+  /** @param {string} cls @param {string} label @param {string} value @param {string} note */
+  const kpi = (cls, label, value, note) =>
+    h('li', { class: `kpi ${cls}` }, [
+      h('span', { class: 'label' }, [label]),
+      h('span', { class: 'value' }, [value]),
+      h('span', { class: 'note' }, [note]),
+    ]);
+  const kpis = h('ul', { class: 'kpis', 'aria-label': `Key figures, last ${chosen}` }, [
+    kpi(
+      'hit',
+      'Cache hit ratio',
+      t.hitRatio === null ? 'n/a' : formatValue(t.hitRatio, '%'),
+      t.hitRatio === null ? 'No cache traffic' : 'Served from the cache',
+    ),
+    kpi(
+      '',
+      'Requests',
+      formatCount(t.requests),
+      `${formatValue(t.requests / Math.max(1, data.to - data.from), '/s')} on average`,
+    ),
+    kpi(
+      '',
+      'Latency p95',
+      t.latency === null ? 'n/a' : formatValue(t.latency.p95, 'ms'),
+      'Worst pod and route',
+    ),
+    kpi('', 'Blocked versions', formatCount(t.blocked), 'Held back by the policy'),
+    kpi(
+      t.upstreamErrors > 0 ? 'alert' : '',
+      'Upstream errors',
+      formatCount(t.upstreamErrors),
+      `of ${formatCount(t.upstreamRequests)} upstream fetches`,
+    ),
+  ]);
+  const more = internalLink('/stats', ['All charts and memory per pod']);
+  more.classList.add('more');
+  const head = h('div', { class: 'dash-head' }, [
+    h('h2', {}, ['Activity']),
+    rangeNav(chosen, '/'),
+    more,
+  ]);
+  /** @param {(b: StatsBucket) => number | null} f */
+  const line = (f) => seriesOf(data, f);
+  const compact = /** @type {const} */ ({ compact: true, level: 3 });
+  const charts = h('div', { class: 'charts' }, [
+    chart(
+      {
+        id: 'd-rate',
+        title: 'Requests per second',
+        unit: '/s',
+        ...compact,
+        series: [
+          { label: 'All requests', points: line((b) => b.requests / step) },
+          { label: 'Server errors (5xx)', points: line((b) => (b.classes['5xx'] ?? 0) / step) },
+        ],
+      },
+      data,
+    ),
+    chart(
+      {
+        id: 'd-hit',
+        title: 'Cache hit ratio',
+        unit: '%',
+        ...compact,
+        series: [{ label: 'Hit ratio', points: line((b) => b.hitRatio) }],
+      },
+      data,
+    ),
+    chart(
+      {
+        id: 'd-latency',
+        title: 'Request latency p95',
+        unit: 'ms',
+        ...compact,
+        series: [{ label: 'p95', points: line((b) => b.latency?.p95 ?? null) }],
+      },
+      data,
+    ),
+    chart(
+      {
+        id: 'd-upstream',
+        title: 'Upstream fetches and errors',
+        unit: '',
+        ...compact,
+        series: [
+          { label: 'Fetches', points: line((b) => b.upstreamRequests) },
+          { label: 'Errors', points: line((b) => b.upstreamErrors) },
+        ],
+      },
+      data,
+    ),
+  ]);
+  show(
+    [
+      ...heroNodes(),
+      head,
+      data.truncated
+        ? h('p', { class: 'notice deprecated' }, [
+            'Part of this range was left out to bound the work.',
+          ])
+        : null,
+      kpis,
+      charts,
     ],
-    'Home',
+    'Dashboard',
+    true,
   );
-  byId('q').focus();
+  byId('q-home').focus();
 }
 
 /** @param {URLSearchParams} params */
@@ -330,7 +492,7 @@ async function searchPage(params) {
   const input = /** @type {HTMLInputElement} */ (byId('q'));
   input.value = text;
   if (text === '') {
-    homePage();
+    searchHome();
     return;
   }
   /** @type {SearchResult} */
@@ -466,6 +628,10 @@ async function packagePage(name, version) {
           button.addEventListener('click', () => {
             void navigator.clipboard.writeText(cmd.command).then(() => {
               announce('Copied');
+              button.textContent = 'Copied';
+              window.setTimeout(() => {
+                button.textContent = 'Copy';
+              }, 2000);
             });
           });
           return h('div', { class: 'install' }, [h('code', {}, [cmd.command]), button]);
@@ -590,7 +756,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const STATS_RANGES = ['1h', '24h', '7d', '30d', '90d', '1y'];
 const CHART_W = 640;
 const CHART_H = 220;
-const PAD = { left: 52, right: 12, top: 10, bottom: 28 };
+const PAD = { left: 68, right: 12, top: 10, bottom: 28 };
 const SERIES_CLASSES = 8;
 
 /**
@@ -630,6 +796,41 @@ function formatValue(value, unit) {
   return String(Math.round(value * 100) / 100);
 }
 
+/** @param {number} value */
+function formatCount(value) {
+  return new Intl.NumberFormat(undefined, {
+    notation: value >= 100000 ? 'compact' : 'standard',
+  }).format(value);
+}
+
+/**
+ * @param {StatsResponse} data
+ * @param {(b: StatsBucket) => number | null} f
+ */
+function seriesOf(data, f) {
+  return data.series.flatMap((b) => {
+    const v = f(b);
+    return v === null ? [] : [{ t: b.t, v }];
+  });
+}
+
+/**
+ * The time range switch: links with aria-current, to the dashboard ('/') or the stats page.
+ * @param {string} chosen
+ * @param {string} path
+ */
+function rangeNav(chosen, path) {
+  return h(
+    'nav',
+    { 'aria-label': 'Time range', class: 'range-nav' },
+    STATS_RANGES.map((r) => {
+      const a = internalLink(`${path}?range=${r}`, [r]);
+      if (r === chosen) a.setAttribute('aria-current', 'page');
+      return a;
+    }),
+  );
+}
+
 /** @param {number} sec @param {string} range */
 function formatTime(sec, range) {
   const d = new Date(sec * 1000);
@@ -640,7 +841,8 @@ function formatTime(sec, range) {
 
 /**
  * @typedef {{ label: string, points: Array<{ t: number, v: number }> }} ChartSeries
- * @typedef {{ id: string, title: string, unit: string, series: ChartSeries[] }} ChartSpec
+ * @typedef {{ id: string, title: string, unit: string, series: ChartSeries[],
+ *   level?: 2 | 3, compact?: boolean }} ChartSpec
  */
 
 /**
@@ -651,7 +853,7 @@ function formatTime(sec, range) {
 function chart(spec, data) {
   const nonEmpty = spec.series.filter((s) => s.points.length > 0);
   const figure = h('figure', { class: 'chart' });
-  figure.append(h('h2', { id: `${spec.id}-title` }, [spec.title]));
+  figure.append(h(`h${String(spec.level ?? 2)}`, { id: `${spec.id}-title` }, [spec.title]));
   if (nonEmpty.length === 0) {
     figure.append(h('p', { class: 'muted' }, ['No data in this range.']));
     return figure;
@@ -739,6 +941,7 @@ function chart(spec, data) {
       ),
     ),
   );
+  if (spec.compact === true) return figure;
   const details = h('details', { class: 'chart-table' }, [h('summary', {}, ['Show as table'])]);
   let built = false;
   details.addEventListener('toggle', () => {
@@ -799,20 +1002,7 @@ async function statsPage(range) {
   const step = data.step;
   const stepLabel = step >= 3600 ? `${String(step / 3600)} h` : `${String(step / 60)} min`;
   /** @param {(b: StatsBucket) => number | null} f */
-  const line = (f) =>
-    data.series.flatMap((b) => {
-      const v = f(b);
-      return v === null ? [] : [{ t: b.t, v }];
-    });
-  const rangeNav = h(
-    'nav',
-    { 'aria-label': 'Time range', class: 'range-nav' },
-    STATS_RANGES.map((r) => {
-      const a = internalLink(`/stats?range=${r}`, [r]);
-      if (r === chosen) a.setAttribute('aria-current', 'page');
-      return a;
-    }),
-  );
+  const line = (f) => seriesOf(data, f);
   const pods = Object.entries(data.perPod).slice(0, SERIES_CLASSES);
   const t = data.totals;
   const hit = t.hitRatio === null ? 'no cache traffic' : formatValue(t.hitRatio, '%');
@@ -823,75 +1013,77 @@ async function statsPage(range) {
         `Last ${chosen}, ${String(data.pods.length)} ${data.pods.length === 1 ? 'pod' : 'pods'}. ` +
           `${String(t.requests)} requests, hit ratio ${hit}, ${String(t.upstreamRequests)} upstream fetches, ${String(t.blocked)} blocked versions.`,
       ]),
-      rangeNav,
+      rangeNav(chosen, '/stats'),
       data.truncated
         ? h('p', { class: 'notice deprecated' }, [
             'Part of this range was left out to bound the work.',
           ])
         : null,
-      chart(
-        {
-          id: 'c-rate',
-          title: 'Requests per second',
-          unit: '/s',
-          series: [
-            { label: 'All requests', points: line((b) => b.requests / step) },
-            { label: 'Server errors (5xx)', points: line((b) => (b.classes['5xx'] ?? 0) / step) },
-          ],
-        },
-        data,
-      ),
-      chart(
-        {
-          id: 'c-hit',
-          title: 'Cache hit ratio',
-          unit: '%',
-          series: [{ label: 'Hit ratio', points: line((b) => b.hitRatio) }],
-        },
-        data,
-      ),
-      chart(
-        {
-          id: 'c-upstream',
-          title: `Upstream fetches and errors per ${stepLabel}`,
-          unit: '',
-          series: [
-            { label: 'Fetches', points: line((b) => b.upstreamRequests) },
-            { label: 'Errors', points: line((b) => b.upstreamErrors) },
-          ],
-        },
-        data,
-      ),
-      chart(
-        {
-          id: 'c-blocked',
-          title: `Blocked versions per ${stepLabel}`,
-          unit: '',
-          series: [{ label: 'Blocked', points: line((b) => b.blocked) }],
-        },
-        data,
-      ),
-      chart(
-        {
-          id: 'c-latency',
-          title: 'Request latency p95 (worst pod and route)',
-          unit: 'ms',
-          series: [{ label: 'p95', points: line((b) => b.latency?.p95 ?? null) }],
-        },
-        data,
-      ),
-      chart(
-        {
-          id: 'c-memory',
-          title: 'Memory per pod (resident set)',
-          unit: 'MiB',
-          series: pods.map(([name, points]) => ({
-            label: name,
-            points: points.map((p) => ({ t: p.t, v: p.rss })),
-          })),
-        },
-        data,
-      ),
+      h('div', { class: 'charts' }, [
+        chart(
+          {
+            id: 'c-rate',
+            title: 'Requests per second',
+            unit: '/s',
+            series: [
+              { label: 'All requests', points: line((b) => b.requests / step) },
+              { label: 'Server errors (5xx)', points: line((b) => (b.classes['5xx'] ?? 0) / step) },
+            ],
+          },
+          data,
+        ),
+        chart(
+          {
+            id: 'c-hit',
+            title: 'Cache hit ratio',
+            unit: '%',
+            series: [{ label: 'Hit ratio', points: line((b) => b.hitRatio) }],
+          },
+          data,
+        ),
+        chart(
+          {
+            id: 'c-upstream',
+            title: `Upstream fetches and errors per ${stepLabel}`,
+            unit: '',
+            series: [
+              { label: 'Fetches', points: line((b) => b.upstreamRequests) },
+              { label: 'Errors', points: line((b) => b.upstreamErrors) },
+            ],
+          },
+          data,
+        ),
+        chart(
+          {
+            id: 'c-blocked',
+            title: `Blocked versions per ${stepLabel}`,
+            unit: '',
+            series: [{ label: 'Blocked', points: line((b) => b.blocked) }],
+          },
+          data,
+        ),
+        chart(
+          {
+            id: 'c-latency',
+            title: 'Request latency p95 (worst pod and route)',
+            unit: 'ms',
+            series: [{ label: 'p95', points: line((b) => b.latency?.p95 ?? null) }],
+          },
+          data,
+        ),
+        chart(
+          {
+            id: 'c-memory',
+            title: 'Memory per pod (resident set)',
+            unit: 'MiB',
+            series: pods.map(([name, points]) => ({
+              label: name,
+              points: points.map((p) => ({ t: p.t, v: p.rss })),
+            })),
+          },
+          data,
+        ),
+      ]),
     ],
     'Statistics',
   );
@@ -919,7 +1111,7 @@ async function route() {
     else if (path.startsWith(`${BASE}/package/`)) {
       const name = decodeURIComponent(path.slice(`${BASE}/package/`.length));
       await packagePage(name, params.get('version'));
-    } else homePage();
+    } else await homePage(params.get('range'));
   } catch (err) {
     showError(err);
   }
@@ -939,10 +1131,12 @@ async function start() {
     event.preventDefault();
     void navigate(target.href);
   });
-  const searchForm = document.querySelector('form.search');
-  searchForm?.addEventListener('submit', (event) => {
+  document.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !form.matches('form.search')) return;
     event.preventDefault();
-    const q = /** @type {HTMLInputElement} */ (byId('q')).value;
+    const field = form.elements.namedItem('q');
+    const q = field instanceof HTMLInputElement ? field.value : '';
     void navigate(`${BASE}/search?${new URLSearchParams({ q }).toString()}`);
   });
   window.addEventListener('popstate', () => {
