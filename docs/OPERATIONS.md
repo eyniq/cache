@@ -236,15 +236,52 @@ WEB_SESSION_TTL=1h              # sign-in lifetime (with USERS_FILE)
 ```
 
 - Start page: with statistics available (`STATS_HISTORY=true`, `WEB_STATS=true`, and a reader
-  allowed to see them) `/-/web/` is a dashboard: search box, key figures (hit ratio, requests,
-  p95 latency, blocked versions, upstream errors), compact trend charts and a range switch
-  (`?range=1h|24h|7d|30d|90d|1y`), linking to the full statistics page. Without statistics, or
-  when they cannot be read, it is the plain search-first home. It uses only the data of
-  `/-/web/api/stats`; nothing new is collected.
+  allowed to see them) `/-/web/` is a dashboard with a range switch
+  (`?range=1h|24h|7d|30d|90d|1y`): key figures (hit ratio, requests, p95 latency, upstream
+  errors, blocked versions, tarball traffic) each with a trend line and the change against the
+  period before, a health panel, the cache results as parts of a whole, requests, error answers
+  and latency per route, latency percentiles, upstream health, blocked versions, runtime and
+  storage figures and one row per pod. Without statistics, or when they cannot be read, it is
+  the plain search-first home. It uses only the data of `/-/web/api/stats`; nothing new is
+  collected.
+- The dashboard and the statistics page reload every 30 s while the tab is visible (a hidden
+  tab does not poll; "Pause" stops it). The server caches a range for 30 s and a pod saves its
+  history every 5 minutes, so the newest point can be a few minutes old; the page says through
+  which minute the data runs. The change against the previous period comes from the next longer
+  range (one more read of the same cached reader, repeated every 5 minutes); the longest range
+  has none, and a previous period of which less than 90% was recorded is not compared with.
+- Status labels (always with text) use fixed thresholds over the selected range:
+
+  | Check          | Degraded                           | Failing                       | Needs               |
+  | -------------- | ---------------------------------- | ----------------------------- | ------------------- |
+  | Server errors  | 5xx share at least 1%              | at least 5%                   | 20 requests         |
+  | Upstream       | failed fetches 5% and up           | 25% and up                    | 10 upstream fetches |
+  | Latency p95    | 5% of the intervals at 3 s or more | 5% of them at 10 s or more    | 5 intervals         |
+  | Event loop     | 5% of the intervals at 100 ms p99  | 5% of them at 500 ms or more  | 5 intervals         |
+  | Storage writes | any failed or dropped              | 5% and up (20 writes or more) | any write           |
+
+  Latency and event-loop delay are graded by intervals (the steps of the range) because the
+  figure of a whole range is its worst interval: one slow minute must not mark a month.
+  Below the sample minimum a check reads "No data" and never counts against the overall status,
+  which is the worst check. A pod is "Reporting" while its newest record is at most three steps
+  (and at least 15 minutes plus one step) old; pods of earlier rollouts show as "Not reporting"
+  and do not degrade the status. The labels are a reading aid: the Prometheus metrics stay the
+  source for alerting.
+
+- The blocked-versions figure counts tarball requests the policy refused. The history holds no
+  package names, so the dashboard cannot list which ones; a package page lists its blocked
+  versions with the reason and the time they become allowed.
 - Look: Eyniq design system (B2B register, lagoon-teal product accent), light, dark and high
-  contrast following the browser. System fonts only for now (the CSP has no `font-src`).
-- Read-only: search, package pages (versions, dist-tags, dependencies, links, install
-  commands, tarball link) and READMEs. Versions the policy blocks are listed with the reason
+  contrast following the browser: an app bar, a navigation rail (a floating bar at the bottom
+  on phones), glass cards and floating layers that turn solid with
+  `prefers-reduced-transparency`, more contrast or forced colors, and motion that stops with
+  `prefers-reduced-motion`. System fonts only for now (the CSP has no `font-src`).
+- Charts show the values under the pointer; with the keyboard, focus a chart and use the left
+  and right arrow keys (Home, End, Escape). Every full-size chart also has a table.
+- Read-only: search, package pages (a versions timeline, dist-tags, dependencies with counts,
+  unpacked size and file count when the metadata states them, links, install commands, tarball
+  link) and READMEs. A search hit is marked "Versions held back" when the policy blocks versions
+  of that package and its metadata is in memory; no mark means unknown, not "nothing blocked". Versions the policy blocks are listed with the reason
   and the time they become allowed, never offered for download.
 - Access is the registry's: with `AUTH_TOKENS_PATH`/`USERS_FILE` and without
   `ANONYMOUS_READ`, visitors sign in with a user account (C3). The session cookie only works
@@ -387,8 +424,9 @@ downward API) so pod ids are stable and readable; without it the hostname is use
   quantile. The Prometheus metrics stay the source for alerting.
 - With `WEB_UI=true` the catalog has a stats page at `/-/web/stats` (charts with a table
   fallback; same sign-in as the catalog). Exposure: both this page and `/stats` show pod names,
-  memory per pod, the request mix per route, hit ratios and blocked-version counts, though no
-  package names, client addresses or identities. `/stats` is on the management port (keep it
+  memory per pod, the request mix, error answers and latency per route (`routeStats`), hit
+  ratios, blocked-version counts, event-loop delay, cache size and storage write counts, though
+  no package names, client addresses or identities. `/stats` is on the management port (keep it
   cluster-internal); the page is as visible as the catalog is. Hide the page alone with
   `WEB_STATS=false` (the recording and `/stats` stay), or restrict the `stats` resource in your
   authorizer.

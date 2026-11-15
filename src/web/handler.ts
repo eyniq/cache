@@ -1,4 +1,4 @@
-// Read-only web catalog (C5, WEB_UI): a static shell (HTML, one ES module, one stylesheet)
+// Read-only web catalog (C5, WEB_UI): a static shell (HTML, a few ES modules, one stylesheet)
 // under /-/web/ and small JSON endpoints, served by the registry port. Every response carries
 // a strict Content-Security-Policy (no inline code, same-origin only) and the usual hardening
 // headers (HSTS too when PUBLIC_URL is https), also error answers. Reads use the registry's
@@ -56,6 +56,10 @@ interface Asset {
 const ASSET_TYPES: Readonly<Record<string, string>> = {
   'index.html': 'text/html; charset=utf-8',
   'app.js': 'text/javascript; charset=utf-8',
+  'charts.js': 'text/javascript; charset=utf-8',
+  'dashboard.js': 'text/javascript; charset=utf-8',
+  'dom.js': 'text/javascript; charset=utf-8',
+  'metrics.js': 'text/javascript; charset=utf-8',
   'style.css': 'text/css; charset=utf-8',
   'favicon.svg': 'image/svg+xml',
 };
@@ -336,7 +340,15 @@ export function createWebHandler(deps: WebHandlerDeps): WebHandler {
       const identity = await reader(req, ctx, { ecosystem: adapter.id, route: 'passthrough' });
       const qs = new URLSearchParams({ text, size: String(size), from: String(from) });
       const body = await deps.search.run(adapter, `?${qs.toString()}`, identity, 'web');
-      json(res, ctx, 200, catalog.searchResults(body));
+      const found = catalog.searchResults(body);
+      // Whether the policy holds versions of a hit back, only for packages whose metadata is
+      // in memory (peek: no fetch, no storage read), like the search service's own version
+      // rewriting. Absent means unknown, not "nothing held back".
+      for (const r of found.results) {
+        const entry = deps.metadata.peek(adapter, r.name);
+        if (entry && entry.blocked.size > 0) r.heldBack = true;
+      }
+      json(res, ctx, 200, found);
       return;
     }
     const slash = route.indexOf('/');

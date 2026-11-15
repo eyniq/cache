@@ -229,3 +229,82 @@ describe('web catalog statistics availability', () => {
     expect(session.stats).toBe(true);
   });
 });
+
+describe('web catalog search', () => {
+  it('marks hits with held-back versions from memory only, and leaves the others unmarked', async () => {
+    const peeked: string[] = [];
+    const base = await start({
+      adapters: [
+        {
+          id: 'npm',
+          catalog: {
+            isValidName: () => true,
+            searchResults: () => ({
+              total: 3,
+              results: [
+                { name: 'held', version: '1.0.0' },
+                { name: 'clean', version: '2.0.0' },
+                { name: 'unknown', version: '3.0.0' },
+              ],
+            }),
+          },
+        },
+      ],
+      search: { run: () => Promise.resolve(Buffer.from('{}')) },
+      metadata: {
+        // No lookup here: the search must never fetch a packument per hit.
+        lookup: () => Promise.reject(new Error('must not be called')),
+        blocksWholePackage: () => false,
+        peek: (_adapter: unknown, name: string) => {
+          peeked.push(name);
+          if (name === 'held') return { blocked: new Map([['1.1.0', { reason: 'too new' }]]) };
+          if (name === 'clean') return { blocked: new Map() };
+          return null;
+        },
+      },
+    } as unknown as Partial<WebHandlerDeps>);
+    const res = await fetch(`${base}/-/web/api/search?text=x`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      total: 3,
+      results: [
+        { name: 'held', version: '1.0.0', heldBack: true },
+        { name: 'clean', version: '2.0.0' },
+        { name: 'unknown', version: '3.0.0' },
+      ],
+    });
+    expect(peeked).toEqual(['held', 'clean', 'unknown']);
+  });
+
+  it('asks for the read authorization before it looks at any hit', async () => {
+    let peeks = 0;
+    const base = await start({
+      adapters: [{ id: 'npm', catalog: { isValidName: () => true, searchResults: () => ({}) } }],
+      authorize: () => Promise.reject(new Error('denied')),
+      metadata: { peek: () => (peeks++, null), blocksWholePackage: () => false },
+    } as unknown as Partial<WebHandlerDeps>);
+    expect((await fetch(`${base}/-/web/api/search?text=x`)).status).toBe(500);
+    expect(peeks).toBe(0);
+  });
+});
+
+describe('web catalog assets', () => {
+  it.each(['app.js', 'charts.js', 'dashboard.js', 'dom.js', 'metrics.js'])(
+    'serves the client module %s with the security headers and an ETag',
+    async (file) => {
+      const base = await start();
+      const res = await fetch(`${base}/-/web/static/${file}`);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toBe('text/javascript; charset=utf-8');
+      expect(res.headers.get('content-security-policy')).toContain("script-src 'self'");
+      expect(res.headers.get('etag')).toMatch(/^"/);
+    },
+  );
+
+  it('serves nothing outside the fixed asset list', async () => {
+    const base = await start();
+    for (const file of ['tsconfig.json', 'handler.ts', '..%2fhandler.ts', 'app.js.map']) {
+      expect((await fetch(`${base}/-/web/static/${file}`)).status).toBe(404);
+    }
+  });
+});

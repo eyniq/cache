@@ -87,6 +87,34 @@ describe('StatsReader', () => {
     expect(r.truncated).toBe(false);
   });
 
+  it('reports requests, error answers and latency per route over the whole range', async () => {
+    const t1 = NOW - 600;
+    const a = point(t1, 10);
+    a.req.packument = Object.assign(dict<number>(), { '2xx': 7, '4xx': 2, '5xx': 1 });
+    a.req.tarball = Object.assign(dict<number>(), { '2xx': 4 });
+    a.lat.packument = [0.01, 0.2, 0.4, 10];
+    const b = point(t1, 5);
+    b.lat.packument = [0.02, 0.1, 0.9, 5];
+    await write(minuteKey(t1, 'pod-a'), [a]);
+    await write(minuteKey(t1, 'pod-b'), [b]);
+    const r = await new StatsReader(storage, { now: () => NOW * 1000 }).query('1h');
+    expect(r.routeStats.packument).toEqual({
+      requests: 15,
+      clientErrors: 2,
+      serverErrors: 1,
+      latency: { p50: 0.02, p95: 0.2, p99: 0.9 },
+    });
+    expect(r.routeStats.tarball).toEqual({
+      requests: 4,
+      clientErrors: 0,
+      serverErrors: 0,
+      latency: null,
+    });
+    // The totals stay what they were: the per-route view adds nothing to them.
+    expect(r.totals.requests).toBe(19);
+    expect(Object.keys(r.routeStats).sort()).toEqual(Object.keys(r.totals.routes).sort());
+  });
+
   it('answers long ranges from the hour and day tiers', async () => {
     const dayAgo = NOW - 3 * 86_400;
     await write(hourKey(dayAgo, 'pod-a'), [

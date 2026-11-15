@@ -2,6 +2,10 @@
    Only the variables this catalog uses are copied: B2B register (Eyniq Cache is a B2B product),
    light, dark and high contrast, all through media queries (no attributes). Cache's product
    accent is the lagoon teal (tertiary); saffron (primary) stays for the main action and focus.
+   Material Glass: cards are light glass without blur on the calm backdrop light; the floating
+   layers (app bar, bottom bar, toast) are level 2 and 3 glass with blur, each with a solid
+   fallback (no backdrop-filter, prefers-reduced-transparency, prefers-contrast, forced colors).
+   Motion: the B2B springs as linear() easings; nothing moves with prefers-reduced-motion.
    Fonts: system stacks only for now. The IBM Plex families need a font-src in the CSP and are
    a separate change; --eyq-font-sans / --eyq-font-mono are the one place to switch them on. */
 
@@ -22,19 +26,45 @@
   --eyq-color-warning-container: #ffdcc5;
   --eyq-color-on-warning-container: #301400;
   --eyq-color-success: #296b2a;
+  --eyq-color-success-container: #acf4a2;
+  --eyq-color-on-success-container: #002203;
   --eyq-color-surface: #f9f9ff;
   --eyq-color-surface-container-lowest: #ffffff;
   --eyq-color-surface-container-low: #f1f3ff;
   --eyq-color-surface-container: #e8edff;
   --eyq-color-surface-container-high: #e0e8ff;
+  --eyq-color-surface-container-highest: #dae2f9;
   --eyq-color-on-surface: #131b2c;
   --eyq-color-on-surface-variant: #3c475e;
+  --eyq-color-inverse-surface: #283041;
+  --eyq-color-inverse-on-surface: #edf0ff;
   --eyq-color-outline: #6c7791;
   --eyq-color-outline-variant: #bbc6e3;
   --eyq-color-chart-bulk: #5c77ab;
   --eyq-color-chart-signal: #a06d00;
   --eyq-code-plate-edge: rgb(19 27 44 / 0.1);
   --eyq-elevation-1-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.06), 0 2px 6px 0 rgb(15 23 42 / 0.07);
+  --eyq-elevation-2-shadow: 0 2px 6px 0 rgb(15 23 42 / 0.08), 0 10px 24px 0 rgb(15 23 42 / 0.1);
+  --eyq-elevation-3-shadow: 0 6px 14px 0 rgb(15 23 42 / 0.1), 0 20px 44px 0 rgb(15 23 42 / 0.14);
+  --eyq-elevation-1-glass-tint: #ffffff;
+  --eyq-elevation-1-glass-tint-alpha: 62%;
+  --eyq-elevation-2-glass-tint: #ffffff;
+  --eyq-elevation-2-glass-tint-alpha: 62%;
+  --eyq-elevation-2-glass-blur: 20px;
+  --eyq-elevation-3-glass-tint: #ffffff;
+  --eyq-elevation-3-glass-tint-alpha: 72%;
+  --eyq-elevation-3-glass-blur: 28px;
+  --eyq-glass-finish-saturate-float: 1.8;
+  --eyq-glass-highlight: rgb(255 255 255 / 1);
+  --eyq-glass-finish-shade: inset 0 -1px 0 0 rgb(15 23 42 / 0.05);
+  --eyq-glass-solid-1: var(--eyq-color-surface-container-lowest);
+  --eyq-glass-solid-2: var(--eyq-color-surface-container-lowest);
+  --eyq-glass-solid-3: var(--eyq-color-surface-container-lowest);
+  --eyq-backdrop-calm-glow-1: rgb(215 226 255 / 0.9);
+  --eyq-backdrop-calm-glow-2: rgb(172 199 255 / 0.6);
+  --eyq-backdrop-above-top: rgb(255 255 255 / 0.35);
+  --eyq-backdrop-above-bottom: rgb(0 0 0 / 0.04);
+  --eyq-state-hover: 8%;
   --eyq-night: #0a1426;
   --eyq-lens: #3cddc7;
   --eyq-shape-corner-xs: 4px;
@@ -42,23 +72,102 @@
   --eyq-shape-corner-m: 12px;
   --eyq-shape-corner-l: 16px;
   --eyq-shape-corner-full: 9999px;
+  --eyq-space-0-5: 2px;
   --eyq-space-1: 4px;
   --eyq-space-2: 8px;
   --eyq-space-3: 12px;
   --eyq-space-4: 16px;
+  --eyq-space-5: 20px;
   --eyq-space-6: 24px;
   --eyq-space-8: 32px;
   --eyq-space-12: 48px;
+  --eyq-grid-margin: 16px;
   --eyq-size-target-web: 24px;
+  --eyq-size-target-android: 48px;
   --eyq-size-control: 36px;
+  --eyq-size-control-sm: 32px;
   --eyq-app-bar-height: 56px;
   --eyq-app-bar-tile-size: 28px;
+  --eyq-rail-collapsed: 96px;
+  --eyq-rail-expanded-min: 220px;
+  --eyq-rail-indicator-width: 56px;
+  --eyq-status-label-min-height: 20px;
+  --eyq-tabs-indicator-height: 3px;
   --eyq-max-width-page: 1280px;
   --eyq-max-width-app: 1600px;
   --eyq-metric-value-weight: 300;
+  --eyq-motion-press-scale: 0.97;
+  --eyq-motion-distance-lift: 4px;
+  --eyq-sp-fast: 230ms
+    linear(
+      0,
+      0.0054 1.25%,
+      0.0134 2%,
+      0.0243 2.75%,
+      0.0538 4.25%,
+      0.0912 5.75%,
+      0.1343 7.25%,
+      0.1813 8.75%,
+      0.3906 15%,
+      0.4939 18.25%,
+      0.5872 21.5%,
+      0.6326 23.25%,
+      0.6688 24.75%,
+      0.7383 28%,
+      0.7964 31.25%,
+      0.8471 34.75%,
+      0.8898 38.5%,
+      0.9259 42.75%,
+      0.9531 47.25%,
+      0.9732 52.25%,
+      0.9878 58.25%,
+      0.9958 64.5%,
+      1.0002 72.5%,
+      1
+    );
+  --eyq-fx-fast: 150ms
+    linear(
+      0,
+      0.004 1%,
+      0.0189 2.25%,
+      0.0423 3.5%,
+      0.079 5%,
+      0.1147 6.25%,
+      0.1616 7.75%,
+      0.363 13.75%,
+      0.466 17%,
+      0.5584 20.25%,
+      0.597 21.75%,
+      0.6388 23.5%,
+      0.7072 26.75%,
+      0.7394 28.5%,
+      0.7684 30.25%,
+      0.8182 33.75%,
+      0.8606 37.5%,
+      0.8995 42%,
+      0.9294 46.75%,
+      0.9535 52.25%,
+      0.9713 58.5%,
+      0.9835 65.5%,
+      0.9915 73.75%,
+      0.9961 83.25%,
+      1
+    );
   --eyq-font-sans:
     system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --eyq-font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+@media (min-width: 600px) {
+  :root {
+    --eyq-grid-margin: 24px;
+  }
+}
+
+@media (min-width: 1200px) {
+  :root {
+    --eyq-grid-margin: 32px;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -78,19 +187,40 @@
     --eyq-color-warning-container: #703700;
     --eyq-color-on-warning-container: #ffdcc5;
     --eyq-color-success: #91d888;
+    --eyq-color-success-container: #0b5314;
+    --eyq-color-on-success-container: #acf4a2;
     --eyq-color-surface: #0b1323;
     --eyq-color-surface-container-lowest: #060e1e;
     --eyq-color-surface-container-low: #131b2c;
     --eyq-color-surface-container: #172030;
     --eyq-color-surface-container-high: #222a3b;
+    --eyq-color-surface-container-highest: #2d3546;
     --eyq-color-on-surface: #dae2f9;
     --eyq-color-on-surface-variant: #bbc6e3;
+    --eyq-color-inverse-surface: #dae2f9;
+    --eyq-color-inverse-on-surface: #283041;
     --eyq-color-outline: #8591ab;
     --eyq-color-outline-variant: #3c475e;
     --eyq-color-chart-bulk: #90abe3;
     --eyq-color-chart-signal: #ffb21a;
     --eyq-code-plate-edge: rgb(255 255 255 / 0.08);
     --eyq-elevation-1-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.45), 0 3px 10px 0 rgb(0 0 0 / 0.3);
+    --eyq-elevation-2-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.45), 0 14px 32px 0 rgb(0 0 0 / 0.38);
+    --eyq-elevation-3-shadow: 0 8px 20px 0 rgb(0 0 0 / 0.5), 0 26px 56px 0 rgb(0 0 0 / 0.48);
+    --eyq-elevation-1-glass-tint: var(--eyq-color-surface-container-low);
+    --eyq-elevation-1-glass-tint-alpha: 60%;
+    --eyq-elevation-2-glass-tint: var(--eyq-color-surface-container);
+    --eyq-elevation-2-glass-tint-alpha: 70%;
+    --eyq-elevation-3-glass-tint: var(--eyq-color-surface-container-high);
+    --eyq-glass-highlight: rgb(255 255 255 / 0.08);
+    --eyq-glass-finish-shade: inset 0 -1px 0 0 rgb(0 0 0 / 0.25);
+    --eyq-glass-solid-1: var(--eyq-color-surface-container-low);
+    --eyq-glass-solid-2: var(--eyq-color-surface-container);
+    --eyq-glass-solid-3: var(--eyq-color-surface-container-high);
+    --eyq-backdrop-calm-glow-1: rgb(29 59 107 / 0.8);
+    --eyq-backdrop-calm-glow-2: rgb(67 94 145 / 0.6);
+    --eyq-backdrop-above-top: rgb(255 255 255 / 0);
+    --eyq-backdrop-above-bottom: rgb(0 0 0 / 0.28);
   }
 }
 
@@ -126,27 +256,37 @@
   }
 }
 
-/* Catalog roles, resolved from the tokens above. Cards are solid (no glass) in this client. */
+/* Catalog roles, resolved from the values above. */
 :root {
   --bg: var(--eyq-color-surface);
   --fg: var(--eyq-color-on-surface);
   --muted: var(--eyq-color-on-surface-variant);
   --border: var(--eyq-color-outline-variant);
   --field-border: var(--eyq-color-outline);
-  --card: var(--eyq-color-surface-container-lowest);
+  --card: var(--eyq-glass-solid-1);
   --panel: var(--eyq-color-surface-container-low);
   --link: var(--eyq-color-secondary);
   --accent: var(--eyq-color-tertiary);
   --focus: var(--eyq-color-primary);
   --code-bg: var(--eyq-color-surface);
+  /* Chart series: the product accent, the signal and the bulk color of the design system, and
+     one catalog color (magenta, not part of the design system) for a fourth series. Fixed
+     order, never cycled; every multi-series chart also separates them by dash, legend and
+     readout. Measured against the solid card color: all at least 3:1 in the four themes (the
+     pull request lists the numbers). */
   --c0: var(--eyq-color-tertiary);
-  --c1: var(--eyq-color-error);
+  --c1: var(--eyq-color-chart-signal);
   --c2: var(--eyq-color-chart-bulk);
-  --c3: var(--eyq-color-chart-signal);
-  --c4: var(--eyq-color-success);
-  --c5: var(--eyq-color-warning);
-  --c6: var(--eyq-color-on-surface-variant);
-  --c7: var(--eyq-color-outline);
+  --c3: #b0407e;
+  --cn: var(--eyq-color-outline);
+  --co: var(--eyq-color-on-surface-variant);
+  --ce: var(--eyq-color-error);
+  /* The same series on the inverse plate of the chart readout. */
+  --c0-inv: #3cddc7;
+  --c1-inv: #ffb21a;
+  --c2-inv: #90abe3;
+  --c3-inv: #f078b0;
+  --ce-inv: #ffb4ab;
   font-family: var(--eyq-font-sans);
   font-size: 0.875rem;
   line-height: 1.4285714;
@@ -154,8 +294,39 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --card: var(--eyq-color-surface-container-low);
     --panel: var(--eyq-color-surface-container);
+    --c3: #f078b0;
+    --c0-inv: #006b5f;
+    --c1-inv: #a06d00;
+    --c2-inv: #5c77ab;
+    --c3-inv: #b0407e;
+    --ce-inv: #ba1a1a;
+  }
+}
+
+/* More contrast: the high-contrast role colors all sit at one lightness, which makes series
+   hard to tell apart, so the charts get their own darker (lighter in dark) set of the same
+   four hues, each at least 6.5:1 on the card. */
+@media (prefers-contrast: more) {
+  :root {
+    --c0: #005a50;
+    --c1: #7d5400;
+    --c2: #2c5aa8;
+    --c3: #a3256a;
+  }
+}
+
+@media (prefers-color-scheme: dark) and (prefers-contrast: more) {
+  :root {
+    --c0: #57f1db;
+    --c1: #ffc35a;
+    --c2: #a9c4ff;
+    --c3: #ff8fc4;
+    --c0-inv: #005a50;
+    --c1-inv: #7d5400;
+    --c2-inv: #2c5aa8;
+    --c3-inv: #a3256a;
+    --ce-inv: #7e0007;
   }
 }
 
@@ -168,15 +339,34 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* Focused content never hides under the sticky app bar or the floating bottom bar. */
+  scroll-padding-top: calc(var(--eyq-app-bar-height) + var(--eyq-space-4));
+  scroll-padding-bottom: var(--eyq-space-12);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
   background: var(--bg);
   color: var(--fg);
+}
+
+/* The calm light behind the glass: fixed to the window, so scrolling never repaints it. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      180deg,
+      var(--eyq-backdrop-above-top),
+      transparent 40%,
+      var(--eyq-backdrop-above-bottom)
+    ),
+    radial-gradient(ellipse 60% 50% at 10% 0%, var(--eyq-backdrop-calm-glow-1), transparent 70%),
+    radial-gradient(ellipse 55% 45% at 90% 45%, var(--eyq-backdrop-calm-glow-2), transparent 70%);
 }
 
 h1,
@@ -193,13 +383,15 @@ h1 {
 }
 
 h2 {
-  font-size: 1.125rem;
-  line-height: 1.3;
+  font-size: 1rem;
+  line-height: 1.5;
+  letter-spacing: 0;
 }
 
 h3 {
-  font-size: 1rem;
-  line-height: 1.5;
+  font-size: 0.875rem;
+  line-height: 1.4286;
+  letter-spacing: 0;
 }
 
 p {
@@ -233,33 +425,153 @@ a {
 .skip:focus {
   left: var(--eyq-space-4);
   top: var(--eyq-space-4);
-  z-index: 10;
+  z-index: 20;
   background: var(--card);
   border-radius: var(--eyq-shape-corner-s);
   padding: var(--eyq-space-2) var(--eyq-space-3);
 }
 
-/* App bar: tile and lockup ("Eyniq" 600, "Cache" 400 in the second text colour), search, account. */
+.muted {
+  color: var(--muted);
+}
+
+.mono {
+  font-family: var(--eyq-font-mono);
+  font-size: 0.8125rem;
+}
+
+.icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Glass. A card lies on the calm light without blur; a floating layer (level 2 and 3) blurs
+   what scrolls under it. The solid color is declared first, so a browser without color-mix
+   keeps it. */
+.card,
+.charts > .chart {
+  position: relative;
+  background: var(--eyq-glass-solid-1);
+  background: color-mix(
+    in srgb,
+    var(--eyq-elevation-1-glass-tint) var(--eyq-elevation-1-glass-tint-alpha),
+    transparent
+  );
+  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  border-radius: var(--eyq-shape-corner-m);
+  box-shadow:
+    var(--eyq-elevation-1-shadow),
+    inset 0 1px 0 var(--eyq-glass-highlight);
+  padding: var(--eyq-space-5);
+}
+
+.glass {
+  background: var(--eyq-glass-solid-2);
+  box-shadow:
+    var(--eyq-elevation-2-shadow),
+    inset 0 1px 0 var(--eyq-glass-highlight),
+    var(--eyq-glass-finish-shade);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .glass {
+    background: color-mix(
+      in srgb,
+      var(--eyq-elevation-2-glass-tint) var(--eyq-elevation-2-glass-tint-alpha),
+      transparent
+    );
+    -webkit-backdrop-filter: blur(var(--eyq-elevation-2-glass-blur))
+      saturate(var(--eyq-glass-finish-saturate-float));
+    backdrop-filter: blur(var(--eyq-elevation-2-glass-blur))
+      saturate(var(--eyq-glass-finish-saturate-float));
+  }
+
+  .toast.glass {
+    background: color-mix(
+      in srgb,
+      var(--eyq-elevation-3-glass-tint) var(--eyq-elevation-3-glass-tint-alpha),
+      transparent
+    );
+    -webkit-backdrop-filter: blur(var(--eyq-elevation-3-glass-blur))
+      saturate(var(--eyq-glass-finish-saturate-float));
+    backdrop-filter: blur(var(--eyq-elevation-3-glass-blur))
+      saturate(var(--eyq-glass-finish-saturate-float));
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .card,
+  .charts > .chart {
+    background: var(--eyq-glass-solid-1);
+  }
+
+  .glass,
+  .toast.glass {
+    background: var(--eyq-glass-solid-2);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  body::before {
+    display: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .card,
+  .charts > .chart {
+    background: var(--eyq-glass-solid-1);
+    border-color: var(--eyq-color-outline);
+  }
+
+  .glass,
+  .toast.glass {
+    background: var(--eyq-glass-solid-2);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    outline: 1px solid var(--eyq-color-outline);
+    outline-offset: -1px;
+  }
+
+  body::before {
+    display: none;
+  }
+}
+
+/* App bar: sticky, level 2 glass; tile and lockup ("Eyniq" 600, "Cache" 400 in the second
+   text colour), search, account. */
 header.site {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+header.site .bar {
   display: flex;
   flex-wrap: wrap;
   gap: var(--eyq-space-2) var(--eyq-space-6);
   align-items: center;
   min-height: var(--eyq-app-bar-height);
-  padding: var(--eyq-space-2) var(--eyq-space-6);
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
+  padding: var(--eyq-space-2) max(var(--eyq-grid-margin), env(safe-area-inset-right))
+    var(--eyq-space-2) max(var(--eyq-grid-margin), env(safe-area-inset-left));
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: var(--eyq-space-3);
+  gap: var(--eyq-space-2);
   min-height: var(--eyq-size-control);
   text-decoration: none;
   color: var(--fg);
-  font-size: 1.125rem;
-  line-height: 1;
+  font-size: 1rem;
+  line-height: 1.5;
+  white-space: nowrap;
 }
 
 .brand .eyniq {
@@ -317,7 +629,7 @@ body.home header.site form.search {
 #account {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--eyq-space-2) var(--eyq-space-4);
+  gap: var(--eyq-space-2) var(--eyq-space-3);
   align-items: center;
   margin-left: auto;
 }
@@ -326,9 +638,11 @@ body.home header.site form.search {
   margin: 0;
 }
 
-/* Controls: 36 px high (size.control), 8 px corners, 1 px outline. */
+/* Controls: 36 px high (size.control), 8 px corners, 1 px outline. A press scales the control
+   on the fast spatial spring; colors change on the fast effects curve. */
 input,
-button {
+button,
+a.button {
   font: inherit;
   min-height: var(--eyq-size-control);
   padding: 0 var(--eyq-space-3);
@@ -347,17 +661,32 @@ input:hover {
   border-color: var(--fg);
 }
 
-button {
+button,
+a.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--eyq-space-2);
   font-weight: 500;
   cursor: pointer;
+  text-decoration: none;
   background: var(--eyq-color-secondary-container);
   color: var(--eyq-color-on-secondary-container);
   border-color: transparent;
-  transition: box-shadow 120ms ease;
+  transition:
+    transform var(--eyq-sp-fast),
+    box-shadow var(--eyq-fx-fast),
+    background-color var(--eyq-fx-fast);
 }
 
-button:hover {
+button:hover,
+a.button:hover {
   box-shadow: var(--eyq-elevation-1-shadow);
+}
+
+button:active,
+a.button:active {
+  transform: scale(var(--eyq-motion-press-scale));
 }
 
 button[type='submit'] {
@@ -371,46 +700,486 @@ button.secondary {
   border-color: var(--field-border);
 }
 
+button.quiet {
+  min-height: var(--eyq-size-control-sm);
+  padding: 0 var(--eyq-space-2);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+button.quiet:hover {
+  box-shadow: none;
+  background: color-mix(in srgb, currentColor var(--eyq-state-hover), transparent);
+}
+
+button.quiet .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Shell: the rail next to the page (840 px and up: expanded, label next to the icon; 600 to
+   840 px: collapsed to 96 px, label under the icon), below 600 px a floating glass bar at the
+   bottom. The design system measures the expanded width and the sliding block in JS and
+   writes them as inline custom properties; inline styles are not allowed here, so the rail has
+   the fixed minimum width and the current item its own block. */
+.shell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: calc(100vh - var(--eyq-app-bar-height));
+}
+
+.rail {
+  position: sticky;
+  top: var(--eyq-app-bar-height);
+  width: var(--eyq-rail-expanded-min);
+  max-height: calc(100vh - var(--eyq-app-bar-height));
+  overflow-y: auto;
+  padding: var(--eyq-space-4) var(--eyq-space-3);
+  color: var(--muted);
+}
+
+.rail ul {
+  display: grid;
+  gap: var(--eyq-space-0-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rail a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--eyq-space-3);
+  min-height: var(--eyq-size-control);
+  padding: 0 var(--eyq-space-3);
+  border-radius: var(--eyq-shape-corner-xs);
+  color: inherit;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color var(--eyq-fx-fast),
+    color var(--eyq-fx-fast);
+}
+
+.rail .indicator {
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--eyq-shape-corner-xs);
+  transition: background-color var(--eyq-fx-fast);
+}
+
+.rail a:hover {
+  background: color-mix(in srgb, currentColor var(--eyq-state-hover), transparent);
+}
+
+.rail a[aria-current='page'] {
+  background: var(--eyq-color-secondary-container);
+  color: var(--eyq-color-on-secondary-container);
+}
+
+.rail a[aria-current='page'] .icon {
+  stroke-width: 2.25;
+}
+
+@media (max-width: 839.98px) {
+  .rail {
+    width: var(--eyq-rail-collapsed);
+    padding: var(--eyq-space-3);
+  }
+
+  .rail ul {
+    gap: var(--eyq-space-2);
+  }
+
+  .rail a,
+  .rail a:hover,
+  .rail a[aria-current='page'] {
+    flex-direction: column;
+    gap: var(--eyq-space-1);
+    padding: 0 0 var(--eyq-space-1);
+    background: none;
+    font-size: 0.75rem;
+    line-height: 1.3333;
+    letter-spacing: 0.01em;
+    text-align: center;
+  }
+
+  .rail a[aria-current='page'] {
+    color: var(--fg);
+  }
+
+  .rail .indicator {
+    width: var(--eyq-rail-indicator-width);
+    height: var(--eyq-size-control-sm);
+  }
+
+  .rail a:hover .indicator {
+    background: color-mix(in srgb, currentColor var(--eyq-state-hover), transparent);
+  }
+
+  .rail a[aria-current='page'] .indicator {
+    background: var(--eyq-color-secondary-container);
+    color: var(--eyq-color-on-secondary-container);
+  }
+}
+
+@media (max-width: 599.98px) {
+  .shell {
+    display: block;
+  }
+
+  /* The floating bar: level 2 glass, 16 px corners, three to four places. */
+  .rail {
+    position: fixed;
+    top: auto;
+    left: max(var(--eyq-grid-margin), env(safe-area-inset-left));
+    right: max(var(--eyq-grid-margin), env(safe-area-inset-right));
+    bottom: max(var(--eyq-grid-margin), env(safe-area-inset-bottom));
+    z-index: 10;
+    width: auto;
+    max-height: none;
+    overflow: visible;
+    padding: var(--eyq-space-1);
+    border-radius: var(--eyq-shape-corner-l);
+    background: var(--eyq-glass-solid-2);
+    box-shadow:
+      var(--eyq-elevation-2-shadow),
+      inset 0 1px 0 var(--eyq-glass-highlight),
+      var(--eyq-glass-finish-shade);
+  }
+
+  .rail ul {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .rail a,
+  .rail a:hover,
+  .rail a[aria-current='page'] {
+    justify-content: center;
+    gap: var(--eyq-space-0-5);
+    min-height: var(--eyq-size-target-android);
+    padding: 5px 11px;
+    border-radius: var(--eyq-shape-corner-xs);
+  }
+
+  .rail a[aria-current='page'] {
+    background: var(--eyq-color-secondary-container);
+    color: var(--eyq-color-on-secondary-container);
+  }
+
+  .rail .indicator,
+  .rail a:hover .indicator,
+  .rail a[aria-current='page'] .indicator {
+    width: auto;
+    height: auto;
+    background: none;
+    color: inherit;
+  }
+
+  .nav-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .page {
+    padding-bottom: calc(var(--eyq-size-target-android) + var(--eyq-grid-margin) * 2 + 8px);
+  }
+
+  html {
+    scroll-padding-bottom: calc(var(--eyq-size-target-android) + var(--eyq-grid-margin) * 2 + 16px);
+  }
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  @media (max-width: 599.98px) {
+    .rail {
+      background: color-mix(
+        in srgb,
+        var(--eyq-elevation-2-glass-tint) var(--eyq-elevation-2-glass-tint-alpha),
+        transparent
+      );
+      -webkit-backdrop-filter: blur(var(--eyq-elevation-2-glass-blur))
+        saturate(var(--eyq-glass-finish-saturate-float));
+      backdrop-filter: blur(var(--eyq-elevation-2-glass-blur))
+        saturate(var(--eyq-glass-finish-saturate-float));
+    }
+  }
+}
+
+@media (max-width: 599.98px) and (prefers-reduced-transparency: reduce) {
+  .rail {
+    background: var(--eyq-glass-solid-2);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (max-width: 599.98px) and (prefers-contrast: more) {
+  .rail {
+    background: var(--eyq-glass-solid-2);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    outline: 1px solid var(--eyq-color-outline);
+    outline-offset: -1px;
+  }
+}
+
 main {
   flex: 1;
   width: 100%;
-  max-width: var(--eyq-max-width-page);
-  margin: 0 auto;
-  padding: var(--eyq-space-6);
-}
-
-body.home main {
   max-width: var(--eyq-max-width-app);
+  padding: var(--eyq-space-6) var(--eyq-grid-margin);
 }
 
 main:focus {
   outline: none;
 }
 
+/* A page arrives with a short rise on the fast spring; a refresh patches it without motion. */
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(var(--eyq-space-2));
+  }
+}
+
+main > * {
+  animation: arrive var(--eyq-sp-fast) both;
+}
+
 footer.site {
   color: var(--muted);
   font-size: 0.75rem;
-  text-align: center;
-  padding: var(--eyq-space-8) var(--eyq-space-4);
+  padding: var(--eyq-space-6) var(--eyq-grid-margin) var(--eyq-space-8);
 }
 
-.muted {
-  color: var(--muted);
-}
-
-/* Cards */
-.card,
-.chart,
-.kpi,
-aside.meta section {
-  background: var(--card);
-  border: 1px solid var(--border);
+/* Toast: level 3 glass, floating above the bottom edge. */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--eyq-grid-margin) + env(safe-area-inset-bottom));
+  z-index: 30;
+  max-width: calc(100vw - 2 * var(--eyq-grid-margin));
+  padding: var(--eyq-space-3) var(--eyq-space-4);
   border-radius: var(--eyq-shape-corner-m);
-  box-shadow: var(--eyq-elevation-1-shadow);
-  padding: var(--eyq-space-4);
+  box-shadow:
+    var(--eyq-elevation-3-shadow),
+    inset 0 1px 0 var(--eyq-glass-highlight);
+  color: var(--fg);
+  font-weight: 500;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate(-50%, var(--eyq-space-4));
+  transition:
+    transform var(--eyq-sp-fast),
+    opacity var(--eyq-fx-fast),
+    visibility 0s linear 230ms;
 }
 
-/* Home and dashboard */
+.toast[data-open] {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition:
+    transform var(--eyq-sp-fast),
+    opacity var(--eyq-fx-fast);
+}
+
+@media (max-width: 599.98px) {
+  .toast {
+    bottom: calc(var(--eyq-size-target-android) + var(--eyq-grid-margin) * 2 + 12px);
+  }
+}
+
+/* Status label (tonal, always with text) and chips. */
+.status {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--eyq-status-label-min-height);
+  padding: 0 var(--eyq-space-2);
+  border-radius: var(--eyq-shape-corner-xs);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3333;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.status.success {
+  background: var(--eyq-color-success-container);
+  color: var(--eyq-color-on-success-container);
+}
+
+.status.warning {
+  background: var(--eyq-color-warning-container);
+  color: var(--eyq-color-on-warning-container);
+}
+
+.status.error {
+  background: var(--eyq-color-error-container);
+  color: var(--eyq-color-on-error-container);
+}
+
+.status.busy {
+  background: var(--eyq-color-secondary-container);
+  color: var(--eyq-color-on-secondary-container);
+}
+
+.status.paused {
+  background: var(--eyq-color-surface-container-highest);
+  color: var(--eyq-color-on-surface-variant);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--eyq-space-1);
+  min-height: var(--eyq-size-target-web);
+  padding: 0 var(--eyq-space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--eyq-shape-corner-xs);
+  color: var(--fg);
+  font-size: 0.75rem;
+  line-height: 1.3333;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.chip.tag {
+  border-color: transparent;
+  background: var(--eyq-color-secondary-container);
+  color: var(--eyq-color-on-secondary-container);
+}
+
+.chip .tag-name {
+  font-weight: 600;
+}
+
+a.chip:hover {
+  border-color: var(--field-border);
+}
+
+ul.chips,
+ul.plain {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--eyq-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+ul.plain {
+  flex-direction: column;
+  gap: var(--eyq-space-1);
+}
+
+@media (prefers-contrast: more) {
+  .status,
+  .chip.tag {
+    outline: 1px solid currentColor;
+    outline-offset: -1px;
+  }
+}
+
+/* Page head: title with the overall status, a line of context, range switch and refresh. */
+.page-head {
+  margin-bottom: var(--eyq-space-5);
+}
+
+.page-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--eyq-space-2) var(--eyq-space-3);
+}
+
+.page-title h1 {
+  margin: 0;
+}
+
+.page-sub {
+  margin: var(--eyq-space-1) 0 0;
+}
+
+.page-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--eyq-space-2) var(--eyq-space-6);
+  margin-top: var(--eyq-space-4);
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+
+.live {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--eyq-space-1) var(--eyq-space-2);
+  padding-bottom: var(--eyq-space-1);
+}
+
+.updated {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The range switch looks like tabs: a 3 px line in secondary under the current one. */
+.range-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--eyq-space-1);
+}
+
+.range-nav a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: var(--eyq-size-control);
+  padding: 0 var(--eyq-space-3);
+  border-radius: var(--eyq-shape-corner-xs) var(--eyq-shape-corner-xs) 0 0;
+  color: var(--muted);
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color var(--eyq-fx-fast);
+}
+
+.range-nav a:hover {
+  background: color-mix(in srgb, currentColor var(--eyq-state-hover), transparent);
+}
+
+.range-nav a[aria-current='page'] {
+  color: var(--fg);
+}
+
+.range-nav a[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  left: var(--eyq-space-3);
+  right: var(--eyq-space-3);
+  bottom: 0;
+  height: var(--eyq-tabs-indicator-height);
+  border-radius: var(--eyq-tabs-indicator-height) var(--eyq-tabs-indicator-height) 0 0;
+  background: var(--eyq-color-secondary);
+}
+
+/* Search-first home */
 .hero {
   max-width: 44rem;
   margin: var(--eyq-space-6) 0 var(--eyq-space-8);
@@ -440,39 +1209,48 @@ form.search.hero-search button {
   border-radius: var(--eyq-shape-corner-m);
 }
 
-.dash-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--eyq-space-2) var(--eyq-space-6);
-  margin-bottom: var(--eyq-space-3);
-}
-
-.dash-head h2 {
-  margin: 0;
-}
-
-.dash-head .range-nav {
-  margin: 0;
-}
-
-.dash-head .more {
-  margin-left: auto;
-}
-
+/* Key figures: a label, a large thin number, a trend line and the change. */
 .kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--eyq-space-4);
   list-style: none;
-  margin: 0 0 var(--eyq-space-6);
+  margin: 0 0 var(--eyq-space-4);
   padding: 0;
+}
+
+@media (min-width: 1700px) {
+  .kpis {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1023.98px) {
+  .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 479.98px) {
+  .kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .kpi {
   display: flex;
   flex-direction: column;
   gap: var(--eyq-space-1);
+  min-width: 0;
+  padding: var(--eyq-space-4) var(--eyq-space-5);
+}
+
+.kpi-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--eyq-space-2);
+  min-height: var(--eyq-status-label-min-height);
 }
 
 .kpi .label {
@@ -482,18 +1260,27 @@ form.search.hero-search button {
   letter-spacing: 0.01em;
 }
 
-.kpi .value {
-  font-size: clamp(1.875rem, 1.75rem + 0.55vw, 2.25rem);
-  line-height: 1.2222;
-  font-weight: var(--eyq-metric-value-weight);
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
+.kpi-mid {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--eyq-space-3);
 }
 
-.kpi .note {
+.kpi .value {
+  font-size: clamp(1.625rem, 1.5833rem + 0.1852vw, 1.75rem);
+  line-height: 1.2857;
+  font-weight: var(--eyq-metric-value-weight);
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.kpi .note,
+.delta {
   color: var(--muted);
   font-size: 0.75rem;
+  line-height: 1.3333;
 }
 
 .kpi.hit .value {
@@ -504,63 +1291,278 @@ form.search.hero-search button {
   color: var(--eyq-color-error);
 }
 
-.charts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 34rem), 1fr));
-  gap: var(--eyq-space-4);
+.delta {
+  font-variant-numeric: tabular-nums;
 }
 
-.charts .chart {
-  margin: 0;
+.delta .arrow {
+  display: inline-block;
+  width: 1em;
+  font-weight: 700;
+}
+
+.delta.good > span {
+  color: var(--eyq-color-success);
+  font-weight: 600;
+}
+
+.delta.bad > span {
+  color: var(--eyq-color-error);
+  font-weight: 600;
+}
+
+.delta.neutral > span {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.spark {
+  flex: none;
+  width: 7.5rem;
+  max-width: 45%;
+  height: 2rem;
+}
+
+.spark .line {
+  fill: none;
+  stroke: var(--sc);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.spark .end-dot {
+  fill: var(--sc);
+  stroke: var(--card);
+  stroke-width: 2;
+}
+
+/* Panels */
+.panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
+  gap: var(--eyq-space-4);
+  margin-bottom: var(--eyq-space-4);
+}
+
+.panel {
   min-width: 0;
 }
 
-.notice-card {
-  max-width: 44rem;
+.panel.wide {
+  grid-column: 1 / -1;
+}
+
+.panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--eyq-space-1) var(--eyq-space-3);
+  margin-bottom: var(--eyq-space-2);
+}
+
+.panel-head h2 {
+  margin: 0;
+}
+
+.panel-figure {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-note,
+.chart-note,
+.panel-foot {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.3333;
+  max-width: 45rem;
+}
+
+.panel-foot {
+  margin: var(--eyq-space-3) 0 0;
+}
+
+.empty {
+  color: var(--muted);
+  margin: var(--eyq-space-4) 0 var(--eyq-space-2);
+}
+
+.empty-state {
+  max-width: 40rem;
+  padding: var(--eyq-space-6);
+}
+
+.dash-foot {
+  margin: 0;
+}
+
+.summary-line {
+  margin-bottom: var(--eyq-space-4);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: var(--eyq-space-3) var(--eyq-space-4);
+  margin: var(--eyq-space-3) 0;
+}
+
+.facts dt {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.facts dd {
+  margin: 0;
+  font-size: 1.125rem;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.checks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: var(--eyq-space-3) var(--eyq-space-6);
+  margin: var(--eyq-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checks li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--eyq-space-1) var(--eyq-space-2);
+  align-items: center;
+  padding-top: var(--eyq-space-3);
+  box-shadow: inset 0 1px 0 var(--border);
+}
+
+.check-name {
+  font-weight: 500;
+}
+
+.checks .status {
+  justify-self: end;
+}
+
+.check-value {
+  grid-column: 1 / -1;
+  font-size: 1.125rem;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.check-detail {
+  grid-column: 1 / -1;
+  font-size: 0.75rem;
+  line-height: 1.3333;
 }
 
 /* Search results */
 ul.results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr));
+  gap: var(--eyq-space-4);
   list-style: none;
   padding: 0;
   margin: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--eyq-shape-corner-m);
-  background: var(--card);
-  overflow: hidden;
 }
 
-ul.results li {
-  border-top: 1px solid var(--border);
-  padding: var(--eyq-space-3) var(--eyq-space-4);
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eyq-space-2);
+  min-width: 0;
+  padding: var(--eyq-space-4) var(--eyq-space-5);
+  transition:
+    transform var(--eyq-sp-fast),
+    box-shadow var(--eyq-fx-fast);
 }
 
-ul.results li:first-child {
-  border-top: 0;
+.result:hover {
+  transform: translateY(calc(var(--eyq-motion-distance-lift) * -1));
+  box-shadow:
+    var(--eyq-elevation-2-shadow),
+    inset 0 1px 0 var(--eyq-glass-highlight);
 }
 
-ul.results .name {
+.result-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--eyq-space-2);
+}
+
+.result .name {
   font-weight: 500;
   font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.result-text {
+  flex: 1;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.result-meta {
+  margin: 0;
+  font-size: 0.75rem;
 }
 
 /* Package page */
+.pkg-head {
+  margin-bottom: var(--eyq-space-4);
+}
+
+.pkg-name {
+  font-family: var(--eyq-font-mono);
+  font-size: 1.375rem;
+  overflow-wrap: anywhere;
+}
+
+.pkg-labels {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--eyq-space-2);
+  margin-bottom: var(--eyq-space-3);
+}
+
+.pkg-desc {
+  max-width: 45rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
 .package {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 20rem;
-  gap: var(--eyq-space-8);
-  margin-top: var(--eyq-space-4);
+  grid-template-columns: minmax(0, 1fr) 22rem;
+  gap: var(--eyq-space-4);
+  align-items: start;
 }
 
-@media (max-width: 52rem) {
+.pkg-main,
+aside.meta {
+  display: grid;
+  gap: var(--eyq-space-4);
+  min-width: 0;
+}
+
+@media (max-width: 64rem) {
   .package {
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--eyq-space-4);
   }
-}
 
-aside.meta section {
-  margin-bottom: var(--eyq-space-4);
+  aside.meta {
+    order: -1;
+  }
 }
 
 aside.meta h2 {
@@ -569,9 +1571,147 @@ aside.meta h2 {
   margin: 0 0 var(--eyq-space-2);
 }
 
-aside.meta ul {
+.detail-list {
   margin: 0;
-  padding-left: 1.1rem;
+}
+
+.detail-list div {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  gap: var(--eyq-space-2);
+  padding: var(--eyq-space-2) 0;
+  box-shadow: inset 0 1px 0 var(--border);
+}
+
+.detail-list div:first-child {
+  box-shadow: none;
+  padding-top: 0;
+}
+
+.detail-list dt {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.6667;
+}
+
+.detail-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.integrity {
+  font-size: 0.6875rem;
+  word-break: break-all;
+  background: none;
+  padding: 0;
+}
+
+/* Versions as a timeline: a line with a dot per version, newest first. */
+.timeline {
+  margin: var(--eyq-space-3) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tl-item {
+  position: relative;
+  padding: 0 0 var(--eyq-space-4) var(--eyq-space-6);
+}
+
+.tl-item::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 14px;
+  bottom: -6px;
+  width: 2px;
+  background: var(--border);
+}
+
+.tl-item:last-child::before {
+  display: none;
+}
+
+.tl-dot {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--eyq-color-outline);
+  background: var(--card);
+}
+
+.tl-item.selected .tl-dot {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.tl-item.blocked .tl-dot {
+  border-color: var(--eyq-color-error);
+  border-radius: 2px;
+}
+
+.tl-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--eyq-space-1) var(--eyq-space-2);
+  min-height: var(--eyq-size-target-web);
+}
+
+.tl-main a[aria-current] {
+  font-weight: 700;
+}
+
+.tl-when {
+  font-size: 0.75rem;
+  line-height: 1.3333;
+}
+
+.dep-kind {
+  margin: var(--eyq-space-4) 0 var(--eyq-space-2);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.4545em;
+  padding: 0 var(--eyq-space-1);
+  border-radius: var(--eyq-shape-corner-full);
+  background: var(--eyq-color-secondary-container);
+  color: var(--eyq-color-on-secondary-container);
+  font-size: 0.6875rem;
+  line-height: 1.4545;
+  font-variant-numeric: tabular-nums;
+}
+
+ul.deps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: var(--eyq-space-1) var(--eyq-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+ul.deps li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--eyq-space-2);
+  min-width: 0;
+  min-height: var(--eyq-size-target-web);
+}
+
+ul.deps a {
+  overflow-wrap: anywhere;
 }
 
 /* Code: a plate with a 1 px edge, 12 px corners, mono type; install commands scroll inside. */
@@ -606,7 +1746,7 @@ pre code {
   display: flex;
   gap: var(--eyq-space-2);
   align-items: center;
-  margin: var(--eyq-space-2) 0;
+  margin: var(--eyq-space-2) 0 0;
   padding: var(--eyq-space-1) var(--eyq-space-1) var(--eyq-space-1) 14px;
   border-radius: var(--eyq-shape-corner-m);
   background: var(--code-bg);
@@ -622,14 +1762,11 @@ pre code {
   background: none;
 }
 
-.install button {
-  min-height: var(--eyq-size-control);
-}
-
 .notice {
   border-radius: var(--eyq-shape-corner-m);
   padding: var(--eyq-space-3) var(--eyq-space-4);
-  margin: var(--eyq-space-4) 0;
+  margin: 0 0 var(--eyq-space-4);
+  max-width: 60rem;
 }
 
 .notice.blocked {
@@ -642,48 +1779,86 @@ pre code {
   color: var(--eyq-color-on-warning-container);
 }
 
-.badge {
-  display: inline-block;
-  font-size: 0.75rem;
-  font-weight: 500;
-  line-height: 1.3333;
-  padding: 1px var(--eyq-space-2);
-  border-radius: var(--eyq-shape-corner-full);
-  background: var(--eyq-color-secondary-container);
-  color: var(--eyq-color-on-secondary-container);
-}
-
-.badge.blocked {
-  background: var(--eyq-color-error-container);
-  color: var(--eyq-color-on-error-container);
-}
-
-/* Tables: 36 px rows, label-style header, 1 px lines. */
+/* Tables: 36 px rows, label-style header, 1 px lines between the rows, numbers at the end. */
 table {
   border-collapse: collapse;
   width: 100%;
-  margin: var(--eyq-space-2) 0 var(--eyq-space-4);
+  margin: var(--eyq-space-2) 0 0;
   font-variant-numeric: tabular-nums;
 }
 
 th,
 td {
   text-align: left;
-  border-bottom: 1px solid var(--border);
+  font-weight: 400;
+  box-shadow: inset 0 -1px 0 var(--border);
   padding: var(--eyq-space-2) var(--eyq-space-3);
   vertical-align: top;
 }
 
-th {
+tbody tr:last-child > * {
+  box-shadow: none;
+}
+
+thead th {
   color: var(--muted);
   font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+th.num,
+td.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+table.data tbody tr:hover > * {
+  background: color-mix(in srgb, currentColor var(--eyq-state-hover), transparent);
+}
+
+table.data th[scope='row'],
+.legend-table th[scope='row'] {
+  font-weight: 500;
+}
+
+td.share {
+  white-space: nowrap;
+  min-width: 9rem;
+}
+
+.warn-text {
+  color: var(--eyq-color-warning);
+  font-weight: 600;
+}
+
+.bad-text {
+  color: var(--eyq-color-error);
+  font-weight: 600;
+}
+
+.table-scroll {
+  max-height: 22rem;
+  overflow: auto;
 }
 
 .readme {
   overflow-wrap: anywhere;
+}
+
+.readme > * {
   max-width: 45rem;
+}
+
+.readme h2 {
+  font-size: 1.125rem;
+  margin-top: var(--eyq-space-5);
+}
+
+.readme h3 {
+  font-size: 1rem;
+  margin-top: var(--eyq-space-4);
 }
 
 .readme img {
@@ -702,23 +1877,29 @@ th {
   color: var(--muted);
 }
 
+/* Sign-in */
 .login {
-  max-width: 22rem;
-  padding: var(--eyq-space-4);
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--eyq-shape-corner-m);
-  box-shadow: var(--eyq-elevation-1-shadow);
+  max-width: 24rem;
+  margin: var(--eyq-space-8) auto;
+  padding: var(--eyq-space-6);
+}
+
+.login-brand {
+  margin-bottom: var(--eyq-space-4);
+}
+
+.login-brand .tile {
+  display: block;
+  width: 40px;
+  height: 40px;
 }
 
 .login label {
   display: block;
   margin: var(--eyq-space-3) 0 var(--eyq-space-1);
+  font-size: 0.75rem;
   font-weight: 500;
-}
-
-.login label:first-child {
-  margin-top: 0;
+  letter-spacing: 0.01em;
 }
 
 .login input {
@@ -726,7 +1907,8 @@ th {
 }
 
 .login button {
-  margin-top: var(--eyq-space-4);
+  width: 100%;
+  margin-top: var(--eyq-space-5);
 }
 
 .error {
@@ -736,38 +1918,17 @@ th {
   border-radius: var(--eyq-shape-corner-s);
 }
 
-/* Statistics: charts are plain SVG; colors and dashes come from classes (no inline styles). */
-.range-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--eyq-space-2);
-  margin: var(--eyq-space-4) 0;
-}
-
-.range-nav a {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--eyq-size-target-web);
-  padding: 0 var(--eyq-space-3);
-  border: 1px solid var(--field-border);
-  border-radius: var(--eyq-shape-corner-s);
-  color: var(--fg);
-  text-decoration: none;
-}
-
-.range-nav a:hover {
-  background: var(--panel);
-}
-
-.range-nav a[aria-current='page'] {
-  background: var(--eyq-color-secondary-container);
-  color: var(--eyq-color-on-secondary-container);
-  border-color: transparent;
-  font-weight: 500;
+/* Charts are plain SVG; colors and dashes come from classes (no inline styles). */
+.charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 30rem), 1fr));
+  gap: var(--eyq-space-4);
+  margin-bottom: var(--eyq-space-4);
 }
 
 .chart {
-  margin: var(--eyq-space-4) 0;
+  margin: 0;
+  min-width: 0;
 }
 
 .chart h2,
@@ -775,6 +1936,17 @@ th {
   font-size: 0.875rem;
   font-weight: 500;
   margin: 0 0 var(--eyq-space-2);
+}
+
+.chart.compact h3 {
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.01em;
+}
+
+.plot-wrap {
+  border-radius: var(--eyq-shape-corner-xs);
+  touch-action: pan-y;
 }
 
 .plot {
@@ -787,10 +1959,16 @@ th {
 .plot .grid {
   stroke: var(--border);
   stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.plot .grid.base {
+  stroke-dasharray: none;
 }
 
 .plot .tick {
   fill: var(--muted);
+  stroke: none;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
@@ -799,72 +1977,118 @@ th {
   text-anchor: end;
 }
 
-.plot .line {
-  fill: none;
-  stroke-width: 2;
-  stroke-linejoin: round;
-}
-
-.plot .dot {
-  stroke: none;
+.plot .mid {
+  text-anchor: middle;
 }
 
 .s0 {
   --sc: var(--c0);
-  stroke: var(--sc);
-  fill: var(--sc);
 }
 
 .s1 {
   --sc: var(--c1);
-  stroke: var(--sc);
-  fill: var(--sc);
 }
 
 .s2 {
   --sc: var(--c2);
-  stroke: var(--sc);
-  fill: var(--sc);
 }
 
 .s3 {
   --sc: var(--c3);
+}
+
+.sn {
+  --sc: var(--cn);
+}
+
+.so {
+  --sc: var(--co);
+}
+
+.se {
+  --sc: var(--ce);
+}
+
+.plot .line {
+  fill: none;
   stroke: var(--sc);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.plot .dot {
   fill: var(--sc);
+  stroke: none;
 }
 
-.s4 {
-  --sc: var(--c4);
-  stroke: var(--sc);
+.plot .line.d1 {
+  stroke-dasharray: 7 4;
+}
+
+.plot .line.d2 {
+  stroke-dasharray: 2 4;
+}
+
+.plot .line.d3 {
+  stroke-dasharray: 9 4 2 4;
+}
+
+/* The readout: guide line, a ring per series (2 px surface ring) and an inverse plate. */
+.plot .guide {
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+
+.plot .ring {
   fill: var(--sc);
+  stroke: var(--card);
+  stroke-width: 2;
 }
 
-.s5 {
-  --sc: var(--c5);
-  stroke: var(--sc);
-  fill: var(--sc);
+.plot .plate {
+  fill: var(--eyq-color-inverse-surface);
+  stroke: none;
 }
 
-.s6 {
-  --sc: var(--c6);
-  stroke: var(--sc);
-  fill: var(--sc);
+.plot .tip text {
+  fill: var(--eyq-color-inverse-on-surface);
+  stroke: none;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
-.s7 {
-  --sc: var(--c7);
-  stroke: var(--sc);
-  fill: var(--sc);
+.plot .tip .when {
+  font-weight: 600;
 }
 
-.plot .line.s1,
-.plot .line.s5 {
-  stroke-dasharray: 6 3;
+.plot .tip .val {
+  text-anchor: end;
+  font-weight: 600;
 }
 
-.plot .line.s2,
-.plot .line.s6 {
-  stroke-dasharray: 2 3;
+.plot .tip .key {
+  stroke: none;
+}
+
+.plot .tip .key.s0 {
+  fill: var(--c0-inv);
+}
+
+.plot .tip .key.s1 {
+  fill: var(--c1-inv);
+}
+
+.plot .tip .key.s2 {
+  fill: var(--c2-inv);
+}
+
+.plot .tip .key.s3 {
+  fill: var(--c3-inv);
+}
+
+.plot .tip .key.se {
+  fill: var(--ce-inv);
 }
 
 .legend {
@@ -888,33 +2112,90 @@ th {
   background: var(--sc);
 }
 
+.stack {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: var(--eyq-space-3) 0 var(--eyq-space-2);
+}
+
+.stack .part {
+  fill: var(--sc);
+  stroke: none;
+}
+
+.meter {
+  display: inline-block;
+  width: 5rem;
+  height: 0.375rem;
+  vertical-align: middle;
+}
+
+.meter .track {
+  fill: var(--eyq-color-surface-container-highest);
+}
+
+.meter .fill {
+  fill: var(--sc);
+  stroke: none;
+}
+
 .chart-table summary {
   cursor: pointer;
   color: var(--link);
   margin-top: var(--eyq-space-2);
+  min-height: var(--eyq-size-target-web);
 }
 
-.table-scroll {
-  max-height: 20rem;
-  overflow: auto;
+/* Loading: quiet blocks in the layout of what is coming, with a slow pulse. */
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
 }
 
-@media (max-width: 40rem) {
-  header.site {
-    padding: var(--eyq-space-2) var(--eyq-space-4);
+.skeleton > * {
+  min-height: 7.5rem;
+  animation: pulse 1600ms cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.skeleton.panels > * {
+  min-height: 14rem;
+}
+
+.skeleton.lines {
+  display: grid;
+  gap: var(--eyq-space-4);
+  max-width: 60rem;
+}
+
+@media (max-width: 599.98px) {
+  /* The app bar wraps to two rows here (brand, then search). */
+  html {
+    scroll-padding-top: calc(var(--eyq-app-bar-height) * 2 + var(--eyq-space-2));
   }
 
   main {
-    padding: var(--eyq-space-4);
+    padding: var(--eyq-space-4) var(--eyq-grid-margin);
   }
 
   form.search {
     flex-basis: 100%;
     max-width: none;
+    order: 3;
   }
 
-  #account {
-    margin-left: 0;
+  .who {
+    display: none;
+  }
+
+  .card,
+  .charts > .chart {
+    padding: var(--eyq-space-4);
+  }
+
+  .detail-list div {
+    grid-template-columns: 6.5rem minmax(0, 1fr);
   }
 }
 
@@ -926,6 +2207,12 @@ th {
     animation: none !important;
     scroll-behavior: auto !important;
   }
+
+  button:active,
+  a.button:active,
+  .result:hover {
+    transform: none;
+  }
 }
 
 @media (forced-colors: active) {
@@ -933,11 +2220,46 @@ th {
     forced-color-adjust: none;
   }
 
-  .plot .line {
+  .card,
+  .glass,
+  .rail,
+  .charts > .chart {
+    background: Canvas;
+    border: 1px solid CanvasText;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  body::before {
+    display: none;
+  }
+
+  .rail a[aria-current='page'] .nav-label,
+  .range-nav a[aria-current='page'] {
+    text-decoration: underline;
+  }
+
+  .range-nav a[aria-current='page']::before {
+    background: Highlight;
+  }
+
+  .status,
+  .chip {
+    border: 1px solid CanvasText;
+  }
+
+  .plot .line,
+  .spark .line {
     stroke: CanvasText;
   }
 
   .plot .line.s0 {
     stroke: Highlight;
+  }
+
+  .stack .part,
+  .meter .fill,
+  .swatch {
+    forced-color-adjust: none;
   }
 }
