@@ -81,6 +81,17 @@ export interface StatsPodPoint {
   heap: number;
 }
 
+/** One route over the whole range: requests, error answers and latency (worst pod). */
+export interface StatsRouteStat {
+  requests: number;
+  /** 4xx answers (a 404 for an unknown package is one of them). */
+  clientErrors: number;
+  /** 5xx answers. */
+  serverErrors: number;
+  /** Seconds; the worst pod (an upper bound). Null without observations. */
+  latency: { p50: number; p95: number; p99: number } | null;
+}
+
 export interface StatsResult {
   range: StatsRange;
   from: number;
@@ -94,6 +105,8 @@ export interface StatsResult {
   /** Objects that could not be read or parsed. */
   skipped: number;
   totals: StatsBucket;
+  /** Per route over the whole range (the buckets only carry the request count per route). */
+  routeStats: Dict<StatsRouteStat>;
   series: StatsBucket[];
   perPod: Dict<StatsPodPoint[]>;
 }
@@ -150,6 +163,23 @@ export function toBucket(p: StatsPoint): StatsBucket {
   };
 }
 
+/** Requests by status class and latency per route of one (rolled-up) point. */
+export function toRouteStats(p: StatsPoint): Dict<StatsRouteStat> {
+  const out = dict<StatsRouteStat>();
+  for (const [route, byClass] of Object.entries(p.req)) {
+    let requests = 0;
+    for (const n of Object.values(byClass)) requests += n;
+    const l = p.lat[route];
+    out[route] = {
+      requests,
+      clientErrors: byClass['4xx'] ?? 0,
+      serverErrors: byClass['5xx'] ?? 0,
+      latency: l ? { p50: l[0], p95: l[1], p99: l[2] } : null,
+    };
+  }
+  return out;
+}
+
 /** Merges pods' points into buckets of `step` seconds. Exported for tests. */
 export function buildResult(
   byPod: Map<string, StatsPoint[]>,
@@ -178,12 +208,14 @@ export function buildResult(
       });
   }
   const series = [...buckets].sort((a, b) => a[0] - b[0]).map(([t, ps]) => toBucket(rollup(ps, t)));
+  const total = rollup(all, meta.from);
   return {
     ...meta,
     pods: [...byPod.keys()].sort(),
     truncated: flags.truncated,
     skipped: flags.skipped,
-    totals: toBucket(rollup(all, meta.from)),
+    totals: toBucket(total),
+    routeStats: toRouteStats(total),
     series,
     perPod,
   };
