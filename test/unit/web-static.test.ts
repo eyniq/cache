@@ -39,6 +39,7 @@ describe('web catalog assets', () => {
       /setAttribute\(\s*['"]on/i,
       /srcdoc/i,
       /javascript:/i,
+      /data:[a-z]+\//i,
       /\.style\s*[.=[]/,
     ]) {
       expect(js, String(sink)).not.toMatch(sink);
@@ -47,6 +48,10 @@ describe('web catalog assets', () => {
     for (const m of js.matchAll(/setAttribute\('(href|src)', ([a-z]+)\)/g)) {
       expect(['href', 'src']).toContain(m[2]);
     }
+  });
+
+  it('never embed data: URIs in the stylesheet (the CSP serves only self)', () => {
+    expect(readFileSync(join(dir, 'style.css'), 'utf8')).not.toMatch(/data:[a-z]+\//i);
   });
 
   it.each(modules)('never set inline styles from the client (%s; the CSP forbids them)', (file) => {

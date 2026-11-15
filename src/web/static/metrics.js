@@ -143,7 +143,7 @@ export function routeLabel(route) {
     account: 'Accounts and tokens',
     unknown: 'Unmatched',
   };
-  const label = known[route];
+  const label = Object.hasOwn(known, route) ? known[route] : undefined;
   if (label !== undefined) return label;
   const words = route.replace(/[_-]+/g, ' ').trim();
   return words === '' ? 'Unnamed' : words.charAt(0).toUpperCase() + words.slice(1);
@@ -502,7 +502,8 @@ export function routeRows(data) {
   const total = data.totals.requests;
   return Object.entries(data.totals.routes ?? {})
     .map(([route, requests]) => {
-      const s = data.routeStats?.[route];
+      const stats = data.routeStats ?? {};
+      const s = Object.hasOwn(stats, route) ? stats[route] : undefined;
       return {
         route,
         label: routeLabel(route),
